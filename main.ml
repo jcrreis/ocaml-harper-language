@@ -30,7 +30,6 @@ let rec ts e t_e = match e with
   | _ -> false
 
 
-
 let rec eval_expr e = match e with
 
   | Var x -> Hashtbl.find gamma_val x
@@ -54,6 +53,7 @@ let rec eval_expr e = match e with
     | Str x, e2 -> eval_expr (Cat(Str x, eval_expr e2))
     | e1, e2 -> eval_expr (Cat(eval_expr e1, e2)))
     ;
+    
   | Len e -> (match e with
     | Str s -> Num(String.length s)
     | e -> eval_expr (Len(eval_expr e)))
