@@ -55,7 +55,7 @@ let rec eval_expr e = match e with
     | e1, e2 -> eval_expr (Cat(eval_expr e1, e2)))
     ;
   | Len e -> (match e with
-    | Len (Str s) -> Num(String.length s)
+    | Str s -> Num(String.length s)
     | e -> eval_expr (Len(eval_expr e)))
     ;
   (* | Let (e1, e2, e3) -> Num(1) *)
@@ -67,12 +67,11 @@ let expr_to_value e = match e with
   | Str s -> s 
   | _ -> "Not defined"
 
-  (* (Len(Cat(Str("ab"), Str("cd")))) *)
-let () = 
-   (*Format.eprintf "%b" (ts  Int)*)
+
+  let () = 
    let res_second =  expr_to_value (eval_expr (Times(Plus(Num(3),Num(2)),Num(3)))) in
    let res_first =  expr_to_value (eval_expr (Cat(Str("ab"), Str("cd")))) in
-   let res = expr_to_value (eval_expr (Plus(Num(3),Num(2))))  in
+   let res = expr_to_value (eval_expr (Len((Cat(Str("ab"), Str("cd"))))))  in
    Format.eprintf "%s\n" res_second;
    Format.eprintf "%s\n" res_first;
    Format.eprintf "%s\n" res ;
