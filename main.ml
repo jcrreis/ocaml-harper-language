@@ -53,14 +53,15 @@ let rec eval_expr e = match e with
     | Str x, e2 -> eval_expr (Cat(Str x, eval_expr e2))
     | e1, e2 -> eval_expr (Cat(eval_expr e1, e2)))
     ;
-    
+
   | Len e -> (match e with
     | Str s -> Num(String.length s)
     | e -> eval_expr (Len(eval_expr e)))
     ;
   (* | Let (e1, e2, e3) -> Num(1) *)
-  
-  | _ -> Str("Not defined")
+  | Let (e1, e2, e3) -> (match e1, e2, e3 with
+    | Var x, e2, e3 -> (Hashtbl.add gamma_val x (eval_expr (e2));
+                        eval_expr e3))
 
 let expr_to_value e = match e with
   | Num n -> Stdlib.string_of_int n 
@@ -69,9 +70,9 @@ let expr_to_value e = match e with
 
 
   let () = 
-   let res_second =  expr_to_value (eval_expr (Times(Plus(Num(3),Num(2)),Num(3)))) in
-   let res_first =  expr_to_value (eval_expr (Cat(Str("ab"), Str("cd")))) in
-   let res = expr_to_value (eval_expr (Len((Cat(Str("ab"), Str("cd"))))))  in
-   Format.eprintf "%s\n" res_second;
-   Format.eprintf "%s\n" res_first;
-   Format.eprintf "%s\n" res ;
+    let res_second = expr_to_value (eval_expr (Times(Plus(Num(3),Num(2)),Num(3)))) in
+    let res_first = expr_to_value (eval_expr (Cat(Str("ab"), Str("cd")))) in
+    let res = expr_to_value (eval_expr (Len((Cat(Str("ab"), Str("cd")))))) in
+    Format.eprintf "%s\n" res_second;
+    Format.eprintf "%s\n" res_first;
+    Format.eprintf "%s\n" res;
