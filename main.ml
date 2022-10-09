@@ -13,12 +13,13 @@ type expr =
   | Let of expr * expr * expr
 
 
-let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
+(* let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64 *)
 
 let gamma_val: (string, expr) Hashtbl.t = Hashtbl.create 64
 
 let rec ts e t_e = match e with 
-  | Var x -> Hashtbl.find gamma x = t_e
+  (* | Var x -> Hashtbl.find gamma x = t_e *)
+  | Var x -> ts (Hashtbl.find gamma_val x) t_e
   | Num _ -> Int = t_e
   | Str _ -> String = t_e
   | Plus (e1, e2) -> Int = t_e && ts e1 Int && ts e2 Int
