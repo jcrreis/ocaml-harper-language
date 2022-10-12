@@ -61,7 +61,10 @@ let rec ts (e: expr) (t_e: t_exp) : t_exp =
           | String -> Int
           | _ -> None
         end
-      | _ -> assert false (* TODO? *)
+      | Let (x, e1, e2) -> 
+          let ty_x = ts e1 Infer in
+          Hashtbl.add gamma x ty_x;
+          ts e2 t_e
     end
 
 let rec eval_expr (e: expr) : expr = match e with
@@ -95,11 +98,24 @@ let rec eval_expr (e: expr) : expr = match e with
      in
      x + x *)
   (* | Let (e1, e2, e3) -> Num(1) *)
-  | Let (x, e2, e3) -> (Hashtbl.add gamma_val x (eval_expr (e2));
-                        eval_expr e3)
-  (* | Let (x, e2, e3) -> begin match e2 with  
-     | Str  *)
-  (* end *)
+  (* | Let (x, e2, e3) -> (Hashtbl.add gamma_val x (eval_expr (e2));
+                        eval_expr e3) *)
+  | Let (x, e2, e3) -> 
+    begin match e2 with  
+     | Num n -> (Hashtbl.add gamma_val x (Num n) ; eval_expr e3)
+     | Str s -> (Hashtbl.add gamma_val x (Str s) ; eval_expr e3)
+     | Var x -> (Hashtbl.add gamma_val x (Hashtbl.find gamma_val x); eval_expr e3)
+     | Plus (e4, e5) -> (Hashtbl.add gamma_val x (eval_expr (Plus (e4, e5))); eval_expr e3)
+     | Times (e4, e5) -> (Hashtbl.add gamma_val x (eval_expr (Times (e4, e5))); eval_expr e3)
+     | Cat (e4, e5) -> (Hashtbl.add gamma_val x (eval_expr (Cat (e4, e5))); eval_expr e3)
+     | Len (e4) -> (Hashtbl.add gamma_val x (eval_expr (Len (e4))); eval_expr e3)
+     | Let (y, e5, e6) -> Num(0)
+    end 
+let rec eval_expr_contextual_dynamics (e: expr) : expr = match e with 
+  | _ -> Num(0)
+
+let rec eval_expr_equation_dynamics (e: expr) : expr = match e with 
+  | _ -> Num(0)
      
 
 let expr_to_value (e:expr) : string = match e with
@@ -119,6 +135,7 @@ let () =
   let res_first = expr_to_value (eval_expr (Cat(Str("ab"), Str("cd")))) in
   let res = expr_to_value (eval_expr (Len((Cat(Str("ab"), Str("cd")))))) in *)
   let res = expr_to_value (eval_expr ((Let("x", Num(3),Plus(Var("x"),Num(3)))))) in
+  (* let res = expr_to_type (Let("x", Num(3),Plus(Var("x"),Num(3)))) Int in *)
   let res_second = expr_to_type (Times(Plus(Num(3),Num(2)),Num(3))) Int in 
   let res_first = expr_to_type (Cat(Str("ab"), Str("cd"))) Int in
   (* let res = expr_to_type (Len((Cat(Str("ab"), Str("cd"))))) Int in *)
