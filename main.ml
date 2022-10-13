@@ -13,6 +13,10 @@ type expr =
   | Cat of expr * expr
   | Len of expr
   | Let of string * expr * expr
+ 
+type expr_c = 
+  | E of expr  
+  | Hole
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
@@ -92,7 +96,7 @@ let rec eval_expr (e: expr) : expr = match e with
   | Len e -> (match e with
       | Str s -> Num(String.length s)
       | e -> eval_expr (Len(eval_expr e)))
-(* Let("x",Let("y",Plus(Var("x"),Num(1)))) *)
+(* Let("x",Let("y",Plus(Var("x"),Num(1)),Plus(Var("x"),Var("x")),Plus(Var("x"),Var("x"))) *)
   (* let x =
        let y = x + 1 in
      in
@@ -109,19 +113,34 @@ let rec eval_expr (e: expr) : expr = match e with
      | Times (e4, e5) -> (Hashtbl.add gamma_val x (eval_expr (Times (e4, e5))); eval_expr e3)
      | Cat (e4, e5) -> (Hashtbl.add gamma_val x (eval_expr (Cat (e4, e5))); eval_expr e3)
      | Len (e4) -> (Hashtbl.add gamma_val x (eval_expr (Len (e4))); eval_expr e3)
-     | Let (y, e5, e6) -> Num(0)
+     | Let (y, e4, e5) -> (Hashtbl.add gamma_val x (eval_expr (Let (y, e4, e5))); eval_expr e3)
     end 
-let rec eval_expr_contextual_dynamics (e: expr) : expr = match e with 
-  | _ -> Num(0)
 
-let rec eval_expr_equation_dynamics (e: expr) : expr = match e with 
-  | _ -> Num(0)
-     
+(* let base_cases (e: expr_c) : expr_c =
+  match e with 
+    | Plus (Num n1, Num n2) -> n1 + n2 *)
+  (* Plus(e1,e2) = (let x = 2 + 3 in x + 1) + 4 *)
+  (* 1+2+3
+  Hole ([])+ 3 *)
+(* let rec eval_expr_contextual_dynamics (e: expr_c) : expr_c = match e with 
+    | Plus (e1, e2) -> match e1 with 
+      | Num n -> n + eval_expr_contextual_dynamics e2 
+      | Str _ -> assert false
+      | Let (x, e3, e4) -> ( ; eval_expr_contextual_dynamics e4 + eval_expr_contextual_dynamics e2 ; eval_expr_contextual_dynamics e4)
+      | Cat (_,_) -> assert false *)
 
-let expr_to_value (e:expr) : string = match e with
+ 
+
+let expr_to_value (e: expr) : string = match eval_expr e with
   | Num n -> Stdlib.string_of_int n
   | Str s -> s
   | _ -> "Not defined"
+
+let type_exp_to_string (t_e: t_exp) : string = match t_e with 
+  | Int -> "Int"
+  | String -> "String"
+  | None -> "None"
+  | Infer -> "Infer"
 
 let expr_to_type (e: expr) (t_e: t_exp) : string = match ts e t_e with
   | Int -> "Int"
@@ -130,16 +149,41 @@ let expr_to_type (e: expr) (t_e: t_exp) : string = match ts e t_e with
   | Infer -> "Infer"
 
 
+let rec expr_to_string (e: expr) : string = match e with
+  | Num n -> Stdlib.string_of_int n
+  | Str s -> "\"" ^ s ^ "\""
+  | Var x -> x
+  | Plus (e1, e2) -> expr_to_string e1 ^ " + " ^ expr_to_string e2
+  | Times (e1, e2) -> expr_to_string e1 ^ " * " ^ expr_to_string e2
+  | Cat (e1, e2) -> expr_to_string e1 ^ " ^ " ^ expr_to_string e2
+  | Len (e1) -> "Len (" ^ expr_to_string e1 ^ ")"
+  | Let (x, e1, e2) -> "Let " ^ x ^ " := " ^ expr_to_string e1 ^ " in " ^ expr_to_string e2 
+
+
+let expr_to_value_result (e: expr) : string =  expr_to_string e ^ " = " ^ expr_to_value e 
+
+let expr_to_type_result (e: expr) (t_e: t_exp) : string = expr_to_string e ^ " : " ^ type_exp_to_string (t_e) ^ " = " ^  expr_to_type e t_e 
+
+let rec print_list lst t_exp =
+  match lst with
+  | [] -> ()
+  | x :: xs -> 
+      Format.eprintf "%s\n" (expr_to_type_result x t_exp);
+      Format.eprintf "%s\n" (expr_to_value_result x);
+      print_list xs t_exp
+
+
 let () =
-  (* let res_second = expr_to_value (eval_expr (Times(Plus(Num(3),Num(2)),Num(3)))) in
-  let res_first = expr_to_value (eval_expr (Cat(Str("ab"), Str("cd")))) in
-  let res = expr_to_value (eval_expr (Len((Cat(Str("ab"), Str("cd")))))) in *)
-  let res = expr_to_value (eval_expr ((Let("x", Num(3),Plus(Var("x"),Num(3)))))) in
-  (* let res = expr_to_type (Let("x", Num(3),Plus(Var("x"),Num(3)))) Int in *)
-  let res_second = expr_to_type (Times(Plus(Num(3),Num(2)),Num(3))) Int in 
-  let res_first = expr_to_type (Cat(Str("ab"), Str("cd"))) Int in
-  (* let res = expr_to_type (Len((Cat(Str("ab"), Str("cd"))))) Int in *)
-  (* let res = expr_to_type (Let("x", Num(3),Plus(Var("x"),Num(3)))) Int in *)
-  Format.eprintf "%s\n" res_second;
-  Format.eprintf "%s\n" res_first;
-  Format.eprintf "%s\n" res;
+  let e1 = (Let("x",Let("y",Plus(Num(3),Num(1)),Plus(Var("y"),Var("y"))),Plus(Var("x"),Var("x")))) in
+  let e2 = ((Let("x", Num(3),Plus(Var("x"),Num(3))))) in
+  let e3 = (Times(Plus(Num(3),Num(2)),Num(3))) in 
+  let e4 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Len(Var("x")))) in
+  let lst = [e1; e2; e3; e4] in
+  print_list lst Int;
+
+  let e1 = (Cat(Str("a"),Str("b"))) in
+  let e2 = (Let("x",Cat(Str("ab"),Str("cd")),Cat(Var("x"),Var("x")))) in
+  let e3 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
+  let lst = [e1; e2; e3] in
+
+  print_list lst String;
