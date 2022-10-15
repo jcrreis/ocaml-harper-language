@@ -78,22 +78,29 @@ let rec eval_expr (e: expr) : expr = match e with
   | Str s -> Str s
 
   | Plus (e1, e2) -> (match e1, e2 with
+      | Str s, _ -> assert false
+      | _, Str s -> assert false
       | Num x, Num y -> Num (x+y)
       | Num x, e2 -> eval_expr (Plus(Num x, eval_expr e2))
       | e1, e2 -> eval_expr (Plus(eval_expr e1, e2)))
 
   | Times (e1, e2) -> (match e1, e2 with
+      | Str s, _ -> assert false
+      | _, Str s -> assert false
       | Num x, Num y -> Num (x*y)
       | Num x, e2 -> eval_expr (Times(Num x, eval_expr e2))
       | e1, e2 -> eval_expr (Times(eval_expr e1, e2)))
 
   | Cat (e1, e2) -> (match e1, e2 with
+      | Num n, _ -> assert false
+      | _, Num n -> assert false
       | Str x, Str y -> Str (x^y)
       | Str x, e2 -> eval_expr (Cat(Str x, eval_expr e2))
       | e1, e2 -> eval_expr (Cat(eval_expr e1, e2)))
 
 
   | Len e -> (match e with
+      | Num n -> assert false
       | Str s -> Num(String.length s)
       | e -> eval_expr (Len(eval_expr e)))
 (* Let("x",Let("y",Plus(Var("x"),Num(1)),Plus(Var("x"),Var("x")),Plus(Var("x"),Var("x"))) *)
@@ -156,10 +163,10 @@ let rec expr_to_string (e: expr) : string = match e with
   | Plus (e1, e2) -> expr_to_string e1 ^ " + " ^ expr_to_string e2
   | Times (e1, e2) -> expr_to_string e1 ^ " * " ^ expr_to_string e2
   | Cat (e1, e2) -> expr_to_string e1 ^ " ^ " ^ expr_to_string e2
-  | Len (e1) -> "Len (" ^ expr_to_string e1 ^ ")"
+  | Len (e1) -> "Len(" ^ expr_to_string e1 ^ ")"
   | Let (x, e1, e2) -> "Let " ^ x ^ " := " ^ expr_to_string e1 ^ " in " ^ expr_to_string e2 
 
-
+ 
 let expr_to_value_result (e: expr) : string =  expr_to_string e ^ " = " ^ expr_to_value e 
 
 let expr_to_type_result (e: expr) (t_e: t_exp) : string = expr_to_string e ^ " : " ^ type_exp_to_string (t_e) ^ " = " ^  expr_to_type e t_e 
@@ -172,6 +179,18 @@ let rec print_list lst t_exp =
       Format.eprintf "%s\n" (expr_to_value_result x);
       print_list xs t_exp
 
+
+type mini_expr =
+  | Num of int 
+  | Sub of mini_expr * mini_expr
+  | Hole 
+
+
+let rec mini_eval_expr (e: mini_expr) : mini_expr = 
+  match e with 
+    | Num i -> Num i
+    | Sub (e1, e2) -> e1
+    | Hole -> Num(0)
 
 let () =
   let e1 = (Let("x",Let("y",Plus(Num(3),Num(1)),Plus(Var("y"),Var("y"))),Plus(Var("x"),Var("x")))) in
@@ -187,3 +206,10 @@ let () =
   let lst = [e1; e2; e3] in
 
   print_list lst String;
+
+  let e1 = (Plus(Str("a"),Str("2"))) in
+  let e2 = (Let("x",Let("y", Cat(Cat(Num(1),Str("b")),Cat(Str("c"),Num(2))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
+  let lst = [e2] in
+
+  print_list lst String;
+
