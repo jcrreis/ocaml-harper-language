@@ -103,14 +103,10 @@ let rec eval_expr (e: expr) : expr = match e with
       | Num n -> assert false
       | Str s -> Num(String.length s)
       | e -> eval_expr (Len(eval_expr e)))
-(* Let("x",Let("y",Plus(Var("x"),Num(1)),Plus(Var("x"),Var("x")),Plus(Var("x"),Var("x"))) *)
-  (* let x =
-       let y = x + 1 in
-     in
-     x + x *)
-  (* | Let (e1, e2, e3) -> Num(1) *)
+
   (* | Let (x, e2, e3) -> (Hashtbl.add gamma_val x (eval_expr (e2));
                         eval_expr e3) *)
+
   | Let (x, e2, e3) -> 
     begin match e2 with  
      | Num n -> (Hashtbl.add gamma_val x (Num n) ; eval_expr e3)
@@ -160,8 +156,8 @@ let rec expr_to_string (e: expr) : string = match e with
   | Num n -> Stdlib.string_of_int n
   | Str s -> "\"" ^ s ^ "\""
   | Var x -> x
-  | Plus (e1, e2) -> expr_to_string e1 ^ " + " ^ expr_to_string e2
-  | Times (e1, e2) -> expr_to_string e1 ^ " * " ^ expr_to_string e2
+  | Plus (e1, e2) -> "(" ^ expr_to_string e1 ^ " + " ^ expr_to_string e2 ^ ")"
+  | Times (e1, e2) -> "(" ^ expr_to_string e1 ^ " * " ^ expr_to_string e2 ^ ")"
   | Cat (e1, e2) -> expr_to_string e1 ^ " ^ " ^ expr_to_string e2
   | Len (e1) -> "Len(" ^ expr_to_string e1 ^ ")"
   | Let (x, e1, e2) -> "Let " ^ x ^ " := " ^ expr_to_string e1 ^ " in " ^ expr_to_string e2 
@@ -182,15 +178,51 @@ let rec print_list lst t_exp =
 
 type mini_expr =
   | Num of int 
+  | Str of string
+  | Cat_e of mini_expr * mini_expr
   | Sub of mini_expr * mini_expr
-  | Hole 
+  | Plus of mini_expr * mini_expr
+  | Hole of mini_expr
 
 
 let rec mini_eval_expr (e: mini_expr) : mini_expr = 
   match e with 
+    | Str s -> Str s
     | Num i -> Num i
-    | Sub (e1, e2) -> e1
-    | Hole -> Num(0)
+    | Sub (e1, e2) ->  begin match e1, e2 with 
+      | Str _, _ -> assert false
+      | _, Str _ -> assert false
+      | Cat_e(_,_), _ -> assert false
+      | _, Cat_e(_,_) -> assert false
+      | Num n1, Num n2 -> Num(n1 - n2)
+      | Num n1, e2 -> mini_eval_expr (Sub(e1, mini_eval_expr (Hole e2)))
+      | e1, e2 -> mini_eval_expr (Sub(mini_eval_expr (Hole e1), e2))
+      end
+    | Plus (e1, e2) -> begin match e1,e2 with 
+      | Str _, _ -> assert false
+      | _, Str _ -> assert false
+      | Cat_e(_,_), _ -> assert false
+      | _, Cat_e(_,_) -> assert false
+      | Num n1, Num n2 -> Num(n1 + n2)
+      | Num n1, e -> mini_eval_expr (Plus(e1, mini_eval_expr (Hole e2)))
+      | e1, e2 -> mini_eval_expr (Plus(mini_eval_expr (Hole e1), e2))
+      end
+    | Cat_e (e1, e2) -> begin match e1,e2 with
+      | Num _, _ -> assert false
+      | _, Num _ -> assert false
+      | Plus(_,_), _ -> assert false
+      | _, Plus(_,_) -> assert false
+      | Str s1, Str s2 -> Str(s1 ^ s2)
+      | Str n1, e2 -> mini_eval_expr (Cat_e(e1, mini_eval_expr (Hole e2)))
+      | e1, e2 -> mini_eval_expr (Cat_e(mini_eval_expr (Hole e1), e2))
+      end
+    | Hole e3 -> mini_eval_expr e3
+    
+let rec mini_eval_expr_string (e: mini_expr) : unit = match mini_eval_expr e with
+  | Num i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
+  | Sub _ -> Format.eprintf "%s\n" "Not defined Sub"
+  | Hole _ -> Format.eprintf "%s\n" "Not defined Hole"
+  | _ -> Format.eprintf "%s\n" "Not defined"
 
 let () =
   let e1 = (Let("x",Let("y",Plus(Num(3),Num(1)),Plus(Var("y"),Var("y"))),Plus(Var("x"),Var("x")))) in
@@ -207,9 +239,17 @@ let () =
 
   print_list lst String;
 
-  let e1 = (Plus(Str("a"),Str("2"))) in
+  (* This cases fail! *)
+  (* let e1 = (Plus(Str("a"),Str("2"))) in
   let e2 = (Let("x",Let("y", Cat(Cat(Num(1),Str("b")),Cat(Str("c"),Num(2))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
   let lst = [e2] in
 
-  print_list lst String;
+  print_list lst String; *)
+
+  let e5 = (Plus(Sub(Sub(Num(30), Num(2)),Num(20)),Num(40))) in 
+  let e6 = (Sub(Num(2),Num(30))) in
+  let e7 =  (Cat_e(Str("2"),Plus(Num(1),Num(2)))) in
+  mini_eval_expr_string e5;
+  mini_eval_expr_string e6;
+  mini_eval_expr_string e7
 
