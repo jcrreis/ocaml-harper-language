@@ -30,20 +30,23 @@ type expr_c =
   | E_leftcat of expr_c * expr
   | E_rightcat of expr * expr_c
   | E_len of expr_c
-  | E_let of string * expr_c * expr
+  | E_leftlet of string * expr_c * expr
+  | E_rightlet of string * expr_c * expr
 
 
 
-let head_reduction (e: expr) : expr = match e with
+let head_reduction (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e with
   | Plus (Num n1, Num n2) -> Num (n1 + n2)
   | Times (Num n1, Num n2) -> Num (n1 * n2)
   | Div (Num n1, Num n2) -> Num (n1 / n2)
   | Cat (Str s1, Str s2) -> Str (s1 ^ s2)
   | Len (Str s) -> Num  (String.length s)
-  (* | Let (x, e1, e2) -> begin 
-    | Num n -> (Hashtbl.add gamma_val x (Num n) ; head_reduction e2)
-    | Str s -> (Hashtbl.add gamma_val x (Str s) ; head_reduction e2)
-    | Var x -> (Hashtbl.add gamma_val x (Hashtbl.find gamma_val x); head_reduction e2) *)
+  | Let (x, e1, e2) ->  begin match e1 with  
+     | Num n -> (Hashtbl.add tbl x (Num n) ; head_reduction e2)
+     | Str s -> (Hashtbl.add tbl x (Str s) ; head_reduction e2)
+     | Var x -> (Hashtbl.add tbl x (Hashtbl.find tblç x); head_reduction e2)
+     | _ ->  (Hashtbl.add tbl x (head_reduction e1); head_reduction e2)
+    end 
   | _ -> assert false
 
 let rec decompose (e: expr) : (expr * expr_c) = match e with 
@@ -63,6 +66,8 @@ let rec decompose (e: expr) : (expr * expr_c) = match e with
   | Cat (Str n1, e2) -> let r, c = decompose e2 in (r, E_rightcat (Str n1, c))
   | Len (Str s1) -> (e, Hole)
   | Len (e1) -> let r, c = decompose e1 in (r, E_len(c)) 
+  | E_leftlet of string * expr_c * expr
+  | E_rightlet of string * expr_c * expr
 
 
 
@@ -86,7 +91,7 @@ let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) 
     end
   | Num i -> Num_val i
   | Str s -> Str_val s 
-  | _ -> let e_d, e_c = decompose e in let e1 = head_reduction e_d in let e2 = fill_context e_c e1 in eval_expr_contextual_dynamics e2 tbl
+  | _ -> let e_d, e_c = decompose e in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 in eval_expr_contextual_dynamics e2 tbl
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
