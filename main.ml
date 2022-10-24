@@ -4,19 +4,89 @@ type t_exp =
   | None
   | Infer
 
+type my_val =
+  | Num_val of int
+  | Str_val of string
+
 type expr =
   | Var of string
   | Num of int
   | Str of string
   | Plus of expr * expr
+  | Div of expr * expr
   | Times of expr * expr
   | Cat of expr * expr
   | Len of expr
   | Let of string * expr * expr
  
-type expr_c = 
-  | E of expr  
-  | Hole
+type expr_c =  
+  | Hole (* 5.6a *)
+  | E_leftplus of expr_c * expr (* 5.6b *)
+  | E_rightplus of expr * expr_c 
+  | E_lefttimes of expr_c * expr 
+  | E_righttimes of expr * expr_c
+  | E_leftdiv of expr_c * expr
+  | E_rightdiv of expr * expr_c
+  | E_leftcat of expr_c * expr
+  | E_rightcat of expr * expr_c
+  | E_len of expr_c
+  | E_let of string * expr_c * expr
+
+
+
+let head_reduction (e: expr) : expr = match e with
+  | Plus (Num n1, Num n2) -> Num (n1 + n2)
+  | Times (Num n1, Num n2) -> Num (n1 * n2)
+  | Div (Num n1, Num n2) -> Num (n1 / n2)
+  | Cat (Str s1, Str s2) -> Str (s1 ^ s2)
+  | Len (Str s) -> Num  (String.length s)
+  (* | Let (x, e1, e2) -> begin 
+    | Num n -> (Hashtbl.add gamma_val x (Num n) ; head_reduction e2)
+    | Str s -> (Hashtbl.add gamma_val x (Str s) ; head_reduction e2)
+    | Var x -> (Hashtbl.add gamma_val x (Hashtbl.find gamma_val x); head_reduction e2) *)
+  | _ -> assert false
+
+let rec decompose (e: expr) : (expr * expr_c) = match e with 
+  | Plus (Num n1, Num n2) -> (e, Hole) 
+  | Plus (e1, e2) -> let r,c = decompose e1 in (r, E_leftplus(c, e2))
+  | Plus (Num n1, e2) -> let r, c = decompose e2 in (r, E_rightplus (Num n1, c))
+  | Times (Num n1, Num n2) -> (e, Hole)
+  | Times (e1, e2) -> let r, c = decompose e1 in (r, E_lefttimes(c, e2))
+  | Times (Num n1, e2) -> let r, c = decompose e2 in (r, E_righttimes (Num n1, c))
+  | Div (Num n1, Num n2) -> (e, Hole)
+  | Div (e1, e2) -> let r, c = decompose e1 in (r, E_leftdiv(c, e2))
+  | Div (Num n1, e2) -> let r, c = decompose e2 in (r, E_rightdiv (Num n1, c))
+  | Times (e1, e2) -> let r, c = decompose e1 in (r, E_lefttimes(c, e2))
+  | Times (Num n1, e2) -> let r, c = decompose e2 in (r, E_righttimes (Num n1, c))
+  | Cat (Str s1, Str s2) -> (e, Hole)
+  | Cat (e1, e2) -> let r, c = decompose e1 in (r, E_leftcat(c, e2))
+  | Cat (Str n1, e2) -> let r, c = decompose e2 in (r, E_rightcat (Str n1, c))
+  | Len (Str s1) -> (e, Hole)
+  | Len (e1) -> let r, c = decompose e1 in (r, E_len(c)) 
+
+
+
+let rec fill_context (e_c: expr_c) (e: expr) : expr = match e_c with 
+  | Hole -> e
+  | E_rightplus (e1, e2) -> Plus (e1, fill_context e2 e) 
+  | E_leftplus (e1, e2) -> Plus (fill_context e1 e, e2) 
+  | E_righttimes (e1, e2) -> Times (e1, fill_context e2 e)
+  | E_lefttimes (e1, e2) -> Times (fill_context e1 e, e2) 
+  | E_rightdiv (e1, e2) -> Div (e1, fill_context e2 e)
+  | E_leftdiv (e1, e2) -> Div (fill_context e1 e, e2)
+  | E_rightcat (e1, e2) -> Cat (e1, fill_context e2 e)
+  | E_leftcat (e1, e2) -> Cat (fill_context e1 e, e2)
+  | E_len (e1) -> Len (fill_context e1 e)
+
+
+let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) : my_val = match e with 
+  | Var x -> let e1 = Hashtbl.find tbl x in begin match e1 with 
+    | Str s -> Str_val s
+    | Num i -> Num_val i
+    end
+  | Num i -> Num_val i
+  | Str s -> Str_val s 
+  | _ -> let e_d, e_c = decompose e in let e1 = head_reduction e_d in let e2 = fill_context e_c e1 in eval_expr_contextual_dynamics e2 tbl
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
@@ -119,20 +189,6 @@ let rec eval_expr (e: expr) : expr = match e with
      | Let (y, e4, e5) -> (Hashtbl.add gamma_val x (eval_expr (Let (y, e4, e5))); eval_expr e3)
     end 
 
-(* let base_cases (e: expr_c) : expr_c =
-  match e with 
-    | Plus (Num n1, Num n2) -> n1 + n2 *)
-  (* Plus(e1,e2) = (let x = 2 + 3 in x + 1) + 4 *)
-  (* 1+2+3
-  Hole ([])+ 3 *)
-(* let rec eval_expr_contextual_dynamics (e: expr_c) : expr_c = match e with 
-    | Plus (e1, e2) -> match e1 with 
-      | Num n -> n + eval_expr_contextual_dynamics e2 
-      | Str _ -> assert false
-      | Let (x, e3, e4) -> ( ; eval_expr_contextual_dynamics e4 + eval_expr_contextual_dynamics e2 ; eval_expr_contextual_dynamics e4)
-      | Cat (_,_) -> assert false *)
-
- 
 
 let expr_to_value (e: expr) : string = match eval_expr e with
   | Num n -> Stdlib.string_of_int n
@@ -176,54 +232,6 @@ let rec print_list lst t_exp =
       print_list xs t_exp
 
 
-type mini_expr =
-  | Num of int 
-  | Str of string
-  | Cat_e of mini_expr * mini_expr
-  | Sub of mini_expr * mini_expr
-  | Plus of mini_expr * mini_expr
-  | Hole of mini_expr
-
-
-let rec mini_eval_expr (e: mini_expr) : mini_expr = 
-  match e with 
-    | Str s -> Str s
-    | Num i -> Num i
-    | Sub (e1, e2) ->  begin match e1, e2 with 
-      | Str _, _ -> assert false
-      | _, Str _ -> assert false
-      | Cat_e(_,_), _ -> assert false
-      | _, Cat_e(_,_) -> assert false
-      | Num n1, Num n2 -> Num(n1 - n2)
-      | Num n1, e2 -> mini_eval_expr (Sub(e1, mini_eval_expr (Hole e2)))
-      | e1, e2 -> mini_eval_expr (Sub(mini_eval_expr (Hole e1), e2))
-      end
-    | Plus (e1, e2) -> begin match e1,e2 with 
-      | Str _, _ -> assert false
-      | _, Str _ -> assert false
-      | Cat_e(_,_), _ -> assert false
-      | _, Cat_e(_,_) -> assert false
-      | Num n1, Num n2 -> Num(n1 + n2)
-      | Num n1, e -> mini_eval_expr (Plus(e1, mini_eval_expr (Hole e2)))
-      | e1, e2 -> mini_eval_expr (Plus(mini_eval_expr (Hole e1), e2))
-      end
-    | Cat_e (e1, e2) -> begin match e1,e2 with
-      | Num _, _ -> assert false
-      | _, Num _ -> assert false
-      | Plus(_,_), _ -> assert false
-      | _, Plus(_,_) -> assert false
-      | Str s1, Str s2 -> Str(s1 ^ s2)
-      | Str n1, e2 -> mini_eval_expr (Cat_e(e1, mini_eval_expr (Hole e2)))
-      | e1, e2 -> mini_eval_expr (Cat_e(mini_eval_expr (Hole e1), e2))
-      end
-    | Hole e3 -> mini_eval_expr e3
-    
-let rec mini_eval_expr_string (e: mini_expr) : unit = match mini_eval_expr e with
-  | Num i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
-  | Sub _ -> Format.eprintf "%s\n" "Not defined Sub"
-  | Hole _ -> Format.eprintf "%s\n" "Not defined Hole"
-  | _ -> Format.eprintf "%s\n" "Not defined"
-
 let () =
   let e1 = (Let("x",Let("y",Plus(Num(3),Num(1)),Plus(Var("y"),Var("y"))),Plus(Var("x"),Var("x")))) in
   let e2 = ((Let("x", Num(3),Plus(Var("x"),Num(3))))) in
@@ -245,11 +253,19 @@ let () =
   let lst = [e2] in
 
   print_list lst String; *)
-
-  let e5 = (Plus(Sub(Sub(Num(30), Num(2)),Num(20)),Num(40))) in 
+  let gamma_val: (string, expr) Hashtbl.t = Hashtbl.create 64 in
+  (* let e1 = Times(Plus(Num(1),Num(2)),Num(3)) in *)
+  (* let e1 = Len(Cat(Cat(Str("a"),Str("b")),Str("c"))) in *)
+  let e1 = Div(Div(Num(10),Num(1)),Num(0)) in
+  let res: my_val = eval_expr_contextual_dynamics e1 gamma_val in
+  match res with
+    | Num_val i-> Format.eprintf "%s\n" (Stdlib.string_of_int i)
+    | Str_val s -> Format.eprintf "%s\n" (s);
+  
+  (* let e5 = (Plus(Sub(Sub(Num(30), Num(2)),Num(20)),Num(40))) in 
   let e6 = (Sub(Num(2),Num(30))) in
   let e7 =  (Cat_e(Str("2"),Plus(Num(1),Num(2)))) in
-  mini_eval_expr_string e5;
+  (* mini_eval_expr_string e5; *)
   mini_eval_expr_string e6;
-  mini_eval_expr_string e7
+  mini_eval_expr_string e7 *)
 
