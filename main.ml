@@ -31,7 +31,7 @@ type expr_c =
   | E_rightdiv of expr * expr_c
   | E_leftcat of expr_c * expr
   | E_rightcat of expr * expr_c
-  | E_len of expr_c
+  | E_len of expr_c 
   | E_let of string * expr_c * expr_c
 
 
@@ -50,21 +50,21 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = 
   | Plus (Error s, _) -> (Error s, Hole)
   | Plus (_, Error s) -> (Error s, Hole)
   | Plus (Num n1, Num n2) -> (e, Hole) 
-  | Plus (e1, e2) -> let r,c = decompose e1 tbl in (r, E_leftplus(c, e2))
   | Plus (Num n1, e2) -> let r, c = decompose e2 tbl in (r, E_rightplus (Num n1, c))
+  | Plus (e1, e2) -> let r,c = decompose e1 tbl in (r, E_leftplus(c, e2))
   | Times (Error s, _) -> (Error s, Hole)
   | Times (_, Error s) -> (Error s, Hole)
   | Times (Num n1, Num n2) -> (e, Hole)
-  | Times (e1, e2) -> let r, c = decompose e1 tbl in (r, E_lefttimes(c, e2))
   | Times (Num n1, e2) -> let r, c = decompose e2 tbl in (r, E_righttimes (Num n1, c))
+  | Times (e1, e2) -> let r, c = decompose e1 tbl in (r, E_lefttimes(c, e2))
   | Div (Error s, _) -> (Error s, Hole)
   | Div (_, Error s) -> (Error s, Hole)
   | Div (Num n1, Num n2) -> (e, Hole)
-  | Div (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftdiv(c, e2))
   | Div (Num n1, e2) -> let r, c = decompose e2 tbl in (r, E_rightdiv (Num n1, c))
+  | Div (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftdiv(c, e2))
   | Cat (Str s1, Str s2) -> (e, Hole)
-  | Cat (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftcat(c, e2))
   | Cat (Str n1, e2) -> let r, c = decompose e2 tbl in (r, E_rightcat (Str n1, c))
+  | Cat (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftcat(c, e2))
   | Len (Str s1) -> (e, Hole)
   | Len (e1) -> let r, c = decompose e1 tbl in (r, E_len(c)) 
   | Let (x, e1, e2) -> begin match e1 with
@@ -271,7 +271,9 @@ let () =
   let gamma_val: (string, expr) Hashtbl.t = Hashtbl.create 64 in
   (* let e1 = Times(Plus(Num(1),Num(2)),Num(3)) in *)
   (* let e1 = Len(Cat(Cat(Str("a"),Str("b")),Str("c"))) in *)
-  let e1 = Times(Div(Div(Num(10),Num(0)),Num(1)),Num(3)) in
+  (* let e1 = Times(Div(Div(Num(10),Num(0)),Num(1)),Num(3)) in *)
+  let e1 = Times(Div(Num(1), Len(Str(""))),Num(9)) in
+  (* let e1 = Plus(Num(2), Len(Cat(Str("ab"),Str("cd")))) in *)
   (* let e1 = Div(Num(10), Num(0)) in *)
   let res: my_val = eval_expr_contextual_dynamics e1 gamma_val in
   match res with
