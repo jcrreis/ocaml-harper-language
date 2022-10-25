@@ -32,12 +32,14 @@ type expr_c =
   | E_leftcat of expr_c * expr
   | E_rightcat of expr * expr_c
   | E_len of expr_c 
-  | E_let of string * expr_c * expr_c
+  | E_leftlet of string * expr_c * expr
+  | E_rightlet of string * expr * expr_c
 
 
 
-let head_reduction (e: expr)  : expr = match e with
+let head_reduction (e: expr)  (tbl: (string, expr) Hashtbl.t) : expr = match e with
   | Error s -> Error s
+  | Var x -> Hashtbl.find tbl x
   | Plus (Num n1, Num n2) -> Num (n1 + n2)
   | Times (Num n1, Num n2) -> Num (n1 * n2)
   | Div (_, Num 0) -> Error ("Divisão por zero!")
@@ -67,17 +69,9 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = 
   | Cat (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftcat(c, e2))
   | Len (Str s1) -> (e, Hole)
   | Len (e1) -> let r, c = decompose e1 tbl in (r, E_len(c)) 
-  | Let (x, e1, e2) -> begin match e1 with
-    | Num n -> (Hashtbl.add tbl x (Num n); let r, c = decompose e2 tbl in (r, E_let(x, Hole, c)))
-    | Str s -> (Hashtbl.add tbl x (Str s); let r, c = decompose e2 tbl in (r, E_let(x, Hole, c)))
-    | Plus(Num n1, Num n2) -> (Hashtbl.add tbl x (Num (n1 + n2)); let r, c = decompose e2 tbl in (r, E_let(x, Hole, c)))
-    | Times(Num n1, Num n2) -> (Hashtbl.add tbl x (Num (n1 * n2)); let r, c = decompose e2 tbl in (r, E_let(x, Hole, c)))
-    | Div(Num n1, Num n2) -> (Hashtbl.add tbl x (Num (n1 / n2)); let r, c = decompose e2 tbl in (r, E_let(x, Hole, c)))
-    | Cat(Str s1, Str s2) -> (Hashtbl.add tbl x (Str (s1 ^ s2)); let r, c = decompose e2 tbl in (r, E_let(x, Hole, c)))
-    | Len(Str s1) ->  (Hashtbl.add tbl x (Num (String.length s1)); let r, c = decompose e2 tbl in (r, E_let(x, Hole, c)))
-    end
-
-
+  | Let (x, e1, e2) -> 
+        let r1, _ = decompose e1 tbl in Hashtbl.add tbl x (head_reduction r1 tbl) ;
+        let r2, c2 = decompose e2 tbl in (r2, c2)
 
 let rec fill_context (e_c: expr_c) (e: expr) : expr = match e_c with 
   | Hole -> e
@@ -90,7 +84,8 @@ let rec fill_context (e_c: expr_c) (e: expr) : expr = match e_c with
   | E_rightcat (e1, e2) -> Cat (e1, fill_context e2 e)
   | E_leftcat (e1, e2) -> Cat (fill_context e1 e, e2)
   | E_len (e1) -> Len (fill_context e1 e)
-  | E_let (x, e1, e2) -> Let (x, fill_context e1 e, fill_context e2 e)
+  | E_leftlet (x, e1, e2) -> Let (x, fill_context e1 e, e2)
+  | E_rightlet (x, e1, e2) -> Let(x, e1, fill_context e2 e)
 
 
 let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) : my_val = match e with 
@@ -101,7 +96,7 @@ let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) 
   | Num i -> Num_val i
   | Str s -> Str_val s 
   | Error s -> Error_val s
-  | _ -> let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d in let e2 = fill_context e_c e1 in eval_expr_contextual_dynamics e2 tbl
+  | _ -> let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 in eval_expr_contextual_dynamics e2 tbl
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
@@ -272,9 +267,10 @@ let () =
   (* let e1 = Times(Plus(Num(1),Num(2)),Num(3)) in *)
   (* let e1 = Len(Cat(Cat(Str("a"),Str("b")),Str("c"))) in *)
   (* let e1 = Times(Div(Div(Num(10),Num(0)),Num(1)),Num(3)) in *)
-  let e1 = Times(Div(Num(1), Len(Str(""))),Num(9)) in
+  (* let e1 = Times(Div(Num(1), Len(Str(""))),Num(9)) in *)
   (* let e1 = Plus(Num(2), Len(Cat(Str("ab"),Str("cd")))) in *)
   (* let e1 = Div(Num(10), Num(0)) in *)
+  let e1 = Let("x", Plus(Num(5),Num(5)), Num(4)) in
   let res: my_val = eval_expr_contextual_dynamics e1 gamma_val in
   match res with
     | Num_val i-> Format.eprintf "%s\n" (Stdlib.string_of_int i)
