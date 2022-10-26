@@ -70,10 +70,11 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = 
   | Cat (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftcat(c, e2))
   | Len (Str s1) -> (e, Hole)
   | Len (e1) -> let r, c = decompose e1 tbl in (r, E_len(c)) 
-  | Let (x, e1, e2) -> 
-        let r1, c1 = decompose e1 tbl in (r1, E_leftlet(x, c1, e2));
-        Hashtbl.add tbl x (head_reduction r1 tbl);
-        let r2, c2 = decompose e2 tbl in (r2, E_rightlet(x, r1, c2))
+  | Let (x, Str s, e2) ->  Hashtbl.add tbl x (Str s); let r2, c2 = decompose e2 tbl in (r2, E_rightlet(x, Str s, c2))
+  | Let (x, Num n, e2) ->  Hashtbl.add tbl x (Num n); let r2, c2 = decompose e2 tbl in (r2, E_rightlet(x, Num n, c2))
+  | Let (x, e1, e2) -> let r1, c1 = decompose e1 tbl in (r1, E_leftlet(x, c1, e2))
+
+
 
 let rec fill_context (e_c: expr_c) (e: expr) : expr = match e_c with 
   | Hole -> e
