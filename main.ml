@@ -39,6 +39,8 @@ type expr_c =
 
 let head_reduction (e: expr)  (tbl: (string, expr) Hashtbl.t) : expr = match e with
   | Error s -> Error s
+  | Str s -> Str s
+  | Num n -> Num n
   | Var x -> Hashtbl.find tbl x
   | Plus (Num n1, Num n2) -> Num (n1 + n2)
   | Times (Num n1, Num n2) -> Num (n1 * n2)
@@ -48,6 +50,16 @@ let head_reduction (e: expr)  (tbl: (string, expr) Hashtbl.t) : expr = match e w
   | Len (Str s) -> Num  (String.length s)
   | _ -> assert false
 
+
+let rec expr_to_string (e: expr) : string = match e with
+  | Num n -> Stdlib.string_of_int n
+  | Str s -> "\"" ^ s ^ "\""
+  | Var x -> x
+  | Plus (e1, e2) -> "(" ^ expr_to_string e1 ^ " + " ^ expr_to_string e2 ^ ")"
+  | Times (e1, e2) -> "(" ^ expr_to_string e1 ^ " * " ^ expr_to_string e2 ^ ")"
+  | Cat (e1, e2) -> expr_to_string e1 ^ " ^ " ^ expr_to_string e2
+  | Len (e1) -> "Len(" ^ expr_to_string e1 ^ ")"
+  | Let (x, e1, e2) -> "Let " ^ x ^ " := " ^ expr_to_string e1 ^ " in " ^ expr_to_string e2 
 
 let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = match e with 
   | Plus (Error s, _) -> (Error s, Hole)
@@ -71,25 +83,25 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = 
   | Len (Str s1) -> (e, Hole)
   | Len (e1) -> let r, c = decompose e1 tbl in (r, E_len(c)) 
   | Let (x, e1, e2) ->  match decompose e1 tbl with
-    | (e, Hole) -> Hashtbl.add tbl x (head_reduction e tbl); let r2, c2 = decompose e2 tbl in (r2, E_rightlet(x, e, c2))
+    | (e3, Hole) -> let r2, c2 = decompose e2 tbl in (r2, E_rightlet(x, e3, c2))
     | _ -> let r1, c1 = decompose e1 tbl in (r1, E_leftlet(x, c1, e2))
 
 
 
 
-let rec fill_context (e_c: expr_c) (e: expr) : expr = match e_c with 
+let rec fill_context (e_c: expr_c) (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e_c with 
   | Hole -> e
-  | E_rightplus (e1, e2) -> Plus (e1, fill_context e2 e) 
-  | E_leftplus (e1, e2) -> Plus (fill_context e1 e, e2) 
-  | E_righttimes (e1, e2) -> Times (e1, fill_context e2 e)
-  | E_lefttimes (e1, e2) -> Times (fill_context e1 e, e2) 
-  | E_rightdiv (e1, e2) -> Div (e1, fill_context e2 e)
-  | E_leftdiv (e1, e2) -> Div (fill_context e1 e, e2)
-  | E_rightcat (e1, e2) -> Cat (e1, fill_context e2 e)
-  | E_leftcat (e1, e2) -> Cat (fill_context e1 e, e2)
-  | E_len (e1) -> Len (fill_context e1 e)
-  | E_leftlet (x, e1, e2) -> Let (x, fill_context e1 e, e2)
-  | E_rightlet (x, e1, e2) -> Let (x, e1, fill_context e2 e)
+  | E_rightplus (e1, e2) -> Plus (e1, fill_context e2 e tbl) 
+  | E_leftplus (e1, e2) -> Plus (fill_context e1 e tbl, e2) 
+  | E_righttimes (e1, e2) -> Times (e1, fill_context e2 e tbl)
+  | E_lefttimes (e1, e2) -> Times (fill_context e1 e tbl, e2) 
+  | E_rightdiv (e1, e2) -> Div (e1, fill_context e2 e tbl)
+  | E_leftdiv (e1, e2) -> Div (fill_context e1 e tbl, e2)
+  | E_rightcat (e1, e2) -> Cat (e1, fill_context e2 e tbl)
+  | E_leftcat (e1, e2) -> Cat (fill_context e1 e tbl, e2)
+  | E_len (e1) -> Len (fill_context e1 e tbl)
+  | E_leftlet (x, e1, e2) -> Hashtbl.add tbl x e; Let (x, fill_context e1 e tbl, e2)
+  | E_rightlet (x, e1, e2) -> Let (x, e1, fill_context e2 e tbl)
 
 
 let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) : my_val = match e with 
@@ -100,7 +112,7 @@ let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) 
   | Num i -> Num_val i
   | Str s -> Str_val s 
   | Error s -> Error_val s
-  | _ -> let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 in eval_expr_contextual_dynamics e2 tbl
+  | _ ->  let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
@@ -222,17 +234,6 @@ let expr_to_type (e: expr) (t_e: t_exp) : string = match ts e t_e with
   | Infer -> "Infer"
 
 
-let rec expr_to_string (e: expr) : string = match e with
-  | Num n -> Stdlib.string_of_int n
-  | Str s -> "\"" ^ s ^ "\""
-  | Var x -> x
-  | Plus (e1, e2) -> "(" ^ expr_to_string e1 ^ " + " ^ expr_to_string e2 ^ ")"
-  | Times (e1, e2) -> "(" ^ expr_to_string e1 ^ " * " ^ expr_to_string e2 ^ ")"
-  | Cat (e1, e2) -> expr_to_string e1 ^ " ^ " ^ expr_to_string e2
-  | Len (e1) -> "Len(" ^ expr_to_string e1 ^ ")"
-  | Let (x, e1, e2) -> "Let " ^ x ^ " := " ^ expr_to_string e1 ^ " in " ^ expr_to_string e2 
-
- 
 let expr_to_value_result (e: expr) : string =  expr_to_string e ^ " = " ^ expr_to_value e 
 
 let expr_to_type_result (e: expr) (t_e: t_exp) : string = expr_to_string e ^ " : " ^ type_exp_to_string (t_e) ^ " = " ^  expr_to_type e t_e 
