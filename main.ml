@@ -12,14 +12,17 @@ type my_val =
 type expr =
   | Var of string
   | Num of int
-  | Str of string
+  | Str of string  
+  | Error of string
   | Plus of expr * expr
   | Div of expr * expr
   | Times of expr * expr
   | Cat of expr * expr
   | Len of expr
   | Let of string * expr * expr
-  | Error of string
+  | F_def of string (*f_name*) * expr (* x1 *) * expr (* e2 *) (* Usar hastables para guardar? *)
+  | F_apply of string (*f_name*) * expr (* arg *)
+  
  
 type expr_c =  
   | Hole (* 5.6a *)
@@ -34,7 +37,9 @@ type expr_c =
   | E_len of expr_c 
   | E_leftlet of string * expr_c * expr
   | E_rightlet of string * expr * expr_c
-
+  | E_leftfdef of string * expr_c * expr
+  | E_rightfdef of string * expr * expr_c
+  | E_fapply of string * expr
 
 
 let head_reduction (e: expr)  (tbl: (string, expr) Hashtbl.t) : expr = match e with
