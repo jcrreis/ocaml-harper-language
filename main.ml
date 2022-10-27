@@ -73,6 +73,7 @@ let pp_stack_expr (s:string) (v:expr) =
 
 
 let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = match e with 
+  | Var x ->  (Hashtbl.find tbl x, Hole)
   | Plus (Error s, _) -> (Error s, Hole)
   | Plus (_, Error s) -> (Error s, Hole)
   | Plus (Num n1, Num n2) -> (e, Hole) 
@@ -98,7 +99,7 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = 
      | Str s -> (Hashtbl.add tbl x (Str s) ; let r, c = decompose e2 tbl in (r, E_rightlet(x, Str s, c)))
      | Var y -> (Hashtbl.add tbl x (Hashtbl.find tbl y); let r, c = decompose e2 tbl in (r, E_rightlet(x, Var y, c)))
      | _ -> let r, c = decompose e1 tbl in (r, E_leftlet(x, c, e2))
-     end
+    end
 
 
 
@@ -114,7 +115,7 @@ let rec fill_context (e_c: expr_c) (e: expr) (tbl: (string, expr) Hashtbl.t) : e
   | E_rightcat (e1, e2) -> Cat (e1, fill_context e2 e tbl)
   | E_leftcat (e1, e2) -> Cat (fill_context e1 e tbl, e2)
   | E_len (e1) -> Len (fill_context e1 e tbl)
-  | E_leftlet (x, e1, e2) -> Hashtbl.add tbl x e; Let (x, fill_context e1 e tbl, e2)
+  | E_leftlet (x, e1, e2) -> Let (x, fill_context e1 e tbl, e2)
   | E_rightlet (x, e1, e2) -> Let (x, e1, fill_context e2 e tbl)
 
 
@@ -126,7 +127,7 @@ let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) 
   | Num i -> Num_val i
   | Str s -> Str_val s 
   | Error s -> Error_val s
-  | _ -> let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
+  | _ ->  Format.eprintf "%s\n" "AQUI";let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
@@ -181,7 +182,9 @@ let rec ts (e: expr) (t_e: t_exp) : t_exp =
           ts e2 t_e
     end
 
+
 let rec decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e with
+  | Var x -> Hashtbl.find tbl x
   | Plus (Error s, _) -> Error s
   | Plus (_, Error s) -> Error s
   | Plus (Num _, Num _) -> head_reduction e tbl
@@ -346,20 +349,20 @@ let () =
     | Error_val s -> Format.eprintf "%s\n" (s);
 
   Hashtbl.iter pp_stack_expr gamma_val; *)
-  let e1 = Let("x", Plus(Num(5),Num(5)), Plus(Num(4),Num(4))) in
+  let e1 = Let("x", Plus(Num(5),Num(5)), Plus(Var("x"),Num(4))) in
   let res: my_val = eval_expr_contextual_dynamics e1 gamma_val in
   match res with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
     | Str_val s -> Format.eprintf "%s\n" (s);
     | Error_val s -> Format.eprintf "%s\n" (s);
-
-  let e1 = Let("x", Plus(Num(5),Num(5)), Plus(Num(4),Num(4))) in
+  let e1 = Let("x", Plus(Num(5),Num(5)), Plus(Var("x"),Num(4))) in
   let res: my_val = eval_expr_small_step e1 gamma_val in 
    match res with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
     | Str_val s -> Format.eprintf "%s\n" (s);
     | Error_val s -> Format.eprintf "%s\n" (s);
   
+  Hashtbl.iter pp_stack_expr gamma_val;
   (* let e5 = (Plus(Sub(Sub(Num(30), Num(2)),Num(20)),Num(40))) in 
   let e6 = (Sub(Num(2),Num(30))) in
   let e7 =  (Cat_e(Str("2"),Plus(Num(1),Num(2)))) in
