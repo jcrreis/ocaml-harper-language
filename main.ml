@@ -199,6 +199,7 @@ let rec decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = 
   | Cat (e1, e2) -> Cat(decompose_small_step e1 tbl, e2)
   | Len (Str _) -> head_reduction e tbl
   | Len (e1) -> Len(decompose_small_step e1 tbl)
+  | Let (x, e1, e2) -> assert false
 
 
 let rec eval_expr_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : my_val = match e with
