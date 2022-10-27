@@ -178,12 +178,27 @@ let rec ts (e: expr) (t_e: t_exp) : t_exp =
           ts e2 t_e
     end
 
-let decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e with
-  | Plus(Num _, Num _) -> head_reduction e tbl
+let rec decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e with
+  | Plus (Error s, _) -> Error s
+  | Plus (_, Error s) -> Error s
+  | Plus (Num _, Num _) -> head_reduction e tbl
+  | Plus (Num n1, e2) -> Plus(Num n1, decompose_small_step e2 tbl)
+  | Plus (e1, e2) -> Plus(decompose_small_step e1 tbl, e2)
+  | Times (Error s, _) -> Error s
+  | Times (_, Error s) -> Error s
   | Times (Num _, Num _) -> head_reduction e tbl
+  | Times (Num n1, e2) -> assert false
+  | Times (e1, e2) -> assert false
+  | Div (Error s, _) -> Error s
+  | Div (_, Error s) -> Error s
   | Div (Num _, Num _) -> head_reduction e tbl
+  | Div (Num n1, e2) -> Div(Num n1, decompose_small_step e2 tbl)
+  | Div (e1, e2) -> Div(decompose_small_step e1 tbl, e2)
   | Cat (Str _, Str _) -> head_reduction e tbl
+  | Cat (Str s1, e2) -> assert false
+  | Cat (e1, e2) -> assert false
   | Len (Str _) -> head_reduction e tbl
+  | Len (e1) -> assert false
 
 
 
@@ -324,7 +339,7 @@ let () =
 
   Hashtbl.iter pp_stack_expr gamma_val; *)
 
-  let e1 = Div(Num(4),Num(0)) in
+  let e1 = Plus(Div(Num(4),Num(0)),Num(6)) in
   let res: my_val = eval_expr_small_step e1 gamma_val in 
    match res with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
