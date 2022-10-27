@@ -20,7 +20,7 @@ type expr =
   | Cat of expr * expr
   | Len of expr
   | Let of string * expr * expr
-  | F_def of string (*f_name*) * expr (* x1 *) * expr (* e2 *) (* Usar hastables para guardar? *)
+  | F_def of string (*f_name*) * string (* x1 *) * expr (* e2 *) (* Usar hastables para guardar? *)
   | F_apply of string (*f_name*) * expr (* arg *)
   
  
@@ -199,7 +199,12 @@ let rec decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = 
   | Cat (e1, e2) -> Cat(decompose_small_step e1 tbl, e2)
   | Len (Str _) -> head_reduction e tbl
   | Len (e1) -> Len(decompose_small_step e1 tbl)
-  | Let (x, e1, e2) -> assert false
+  | Let (x, e1, e2) -> begin match e1 with
+     | Num n -> (Hashtbl.add tbl x (Num n) ; decompose_small_step e2 tbl)
+     | Str s -> (Hashtbl.add tbl x (Str s) ; decompose_small_step e2 tbl)
+     | Var x -> (Hashtbl.add tbl x (Hashtbl.find gamma_val x); decompose_small_step e2 tbl)
+     | _ -> Let(x, decompose_small_step e1 tbl, e2)
+     end
 
 
 let rec eval_expr_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : my_val = match e with
@@ -339,7 +344,7 @@ let () =
 
   Hashtbl.iter pp_stack_expr gamma_val; *)
 
-  let e1 = Len(Cat(Cat(Str("a"),Str("b")),Str("c"))) in
+   let e1 = Let("x", Plus(Num(5),Num(5)), Plus(Num(4),Num(4))) in
   let res: my_val = eval_expr_small_step e1 gamma_val in 
    match res with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
