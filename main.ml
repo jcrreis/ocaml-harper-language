@@ -93,9 +93,12 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = 
   | Cat (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftcat(c, e2))
   | Len (Str s1) -> (e, Hole)
   | Len (e1) -> let r, c = decompose e1 tbl in (r, E_len(c)) 
-  | Let (x, e1, e2) ->  match decompose e1 tbl with
-    | (e3, Hole) -> let r2, c2 = decompose e2 tbl in (r2, E_rightlet(x, e3, c2))
-    | _ -> let r1, c1 = decompose e1 tbl in (r1, E_leftlet(x, c1, e2))
+  | Let (x, e1, e2) ->  begin match e1 with
+     | Num n -> (Hashtbl.add tbl x (Num n) ; let r, c = decompose e2 tbl in (r, E_rightlet(x, Num n, c)))
+     | Str s -> (Hashtbl.add tbl x (Str s) ; let r, c = decompose e2 tbl in (r, E_rightlet(x, Str s, c)))
+     | Var y -> (Hashtbl.add tbl x (Hashtbl.find tbl y); let r, c = decompose e2 tbl in (r, E_rightlet(x, Var y, c)))
+     | _ -> let r, c = decompose e1 tbl in (r, E_leftlet(x, c, e2))
+     end
 
 
 
@@ -202,7 +205,7 @@ let rec decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = 
   | Let (x, e1, e2) -> begin match e1 with
      | Num n -> (Hashtbl.add tbl x (Num n) ; decompose_small_step e2 tbl)
      | Str s -> (Hashtbl.add tbl x (Str s) ; decompose_small_step e2 tbl)
-     | Var x -> (Hashtbl.add tbl x (Hashtbl.find gamma_val x); decompose_small_step e2 tbl)
+     | Var y -> (Hashtbl.add tbl x (Hashtbl.find tbl y); decompose_small_step e2 tbl)
      | _ -> Let(x, decompose_small_step e1 tbl, e2)
      end
 
@@ -343,8 +346,14 @@ let () =
     | Error_val s -> Format.eprintf "%s\n" (s);
 
   Hashtbl.iter pp_stack_expr gamma_val; *)
+  let e1 = Let("x", Plus(Num(5),Num(5)), Plus(Num(4),Num(4))) in
+  let res: my_val = eval_expr_contextual_dynamics e1 gamma_val in
+  match res with
+    | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
+    | Str_val s -> Format.eprintf "%s\n" (s);
+    | Error_val s -> Format.eprintf "%s\n" (s);
 
-   let e1 = Let("x", Plus(Num(5),Num(5)), Plus(Num(4),Num(4))) in
+  let e1 = Let("x", Plus(Num(5),Num(5)), Plus(Num(4),Num(4))) in
   let res: my_val = eval_expr_small_step e1 gamma_val in 
    match res with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
