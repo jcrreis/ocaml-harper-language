@@ -50,7 +50,6 @@ let head_reduction (e: expr)  (tbl: (string, expr) Hashtbl.t) : expr = match e w
   | Len (Str s) -> Num  (String.length s)
   | _ -> assert false
 
-
 let rec expr_to_string (e: expr) : string = match e with
   | Num n -> Stdlib.string_of_int n
   | Str s -> "\"" ^ s ^ "\""
@@ -60,6 +59,13 @@ let rec expr_to_string (e: expr) : string = match e with
   | Cat (e1, e2) -> expr_to_string e1 ^ " ^ " ^ expr_to_string e2
   | Len (e1) -> "Len(" ^ expr_to_string e1 ^ ")"
   | Let (x, e1, e2) -> "Let " ^ x ^ " := " ^ expr_to_string e1 ^ " in " ^ expr_to_string e2 
+
+let pp_stack_expr (s:string) (v:expr) =
+  Format.eprintf "%s ---> " s;
+  Format.eprintf "%s; " (expr_to_string v);
+  Format.eprintf "@."
+
+
 
 let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = match e with 
   | Plus (Error s, _) -> (Error s, Hole)
@@ -112,7 +118,7 @@ let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) 
   | Num i -> Num_val i
   | Str s -> Str_val s 
   | Error s -> Error_val s
-  | _ ->  let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
+  | _ -> let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
@@ -167,7 +173,27 @@ let rec ts (e: expr) (t_e: t_exp) : t_exp =
           ts e2 t_e
     end
 
-let rec eval_expr (e: expr) : expr = match e with
+let decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e with
+  | Plus(Num _, Num _) -> head_reduction e tbl
+  | Times (Num _, Num _) -> head_reduction e tbl
+  | Div (Num _, Num _) -> head_reduction e tbl
+  | Cat (Str _, Str _) -> head_reduction e tbl
+  | Len (Str _) -> head_reduction e tbl
+
+
+
+let rec eval_expr_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : my_val = match e with
+  | Var x -> let e1 = Hashtbl.find tbl x in begin match e1 with 
+    | Str s -> Str_val s
+    | Num i -> Num_val i
+    end
+  | Num i -> Num_val i
+  | Str s -> Str_val s 
+  | Error s -> Error_val s
+  | _-> let e1 = decompose_small_step e tbl in eval_expr_small_step e1 tbl
+
+
+let rec eval_expr_big_step (e: expr) : expr = match e with
 
   | Var x -> Hashtbl.find gamma_val x
   | Num n -> Num n
@@ -177,46 +203,46 @@ let rec eval_expr (e: expr) : expr = match e with
       | Str s, _ -> assert false
       | _, Str s -> assert false
       | Num x, Num y -> Num (x+y)
-      | Num x, e2 -> eval_expr (Plus(Num x, eval_expr e2))
-      | e1, e2 -> eval_expr (Plus(eval_expr e1, e2)))
+      | Num x, e2 -> eval_expr_big_step (Plus(Num x, eval_expr_big_step e2))
+      | e1, e2 -> eval_expr_big_step (Plus(eval_expr_big_step e1, e2)))
 
   | Times (e1, e2) -> (match e1, e2 with
       | Str s, _ -> assert false
       | _, Str s -> assert false
       | Num x, Num y -> Num (x*y)
-      | Num x, e2 -> eval_expr (Times(Num x, eval_expr e2))
-      | e1, e2 -> eval_expr (Times(eval_expr e1, e2)))
+      | Num x, e2 -> eval_expr_big_step (Times(Num x, eval_expr_big_step e2))
+      | e1, e2 -> eval_expr_big_step (Times(eval_expr_big_step e1, e2)))
 
   | Cat (e1, e2) -> (match e1, e2 with
       | Num n, _ -> assert false
       | _, Num n -> assert false
       | Str x, Str y -> Str (x^y)
-      | Str x, e2 -> eval_expr (Cat(Str x, eval_expr e2))
-      | e1, e2 -> eval_expr (Cat(eval_expr e1, e2)))
+      | Str x, e2 -> eval_expr_big_step (Cat(Str x, eval_expr_big_step e2))
+      | e1, e2 -> eval_expr_big_step (Cat(eval_expr_big_step e1, e2)))
 
 
   | Len e -> (match e with
       | Num n -> assert false
       | Str s -> Num(String.length s)
-      | e -> eval_expr (Len(eval_expr e)))
+      | e -> eval_expr_big_step (Len(eval_expr_big_step e)))
 
   (* | Let (x, e2, e3) -> (Hashtbl.add gamma_val x (eval_expr (e2));
                         eval_expr e3) *)
 
   | Let (x, e2, e3) -> 
     begin match e2 with  
-     | Num n -> (Hashtbl.add gamma_val x (Num n) ; eval_expr e3)
-     | Str s -> (Hashtbl.add gamma_val x (Str s) ; eval_expr e3)
-     | Var x -> (Hashtbl.add gamma_val x (Hashtbl.find gamma_val x); eval_expr e3)
-     | Plus (e4, e5) -> (Hashtbl.add gamma_val x (eval_expr (Plus (e4, e5))); eval_expr e3)
-     | Times (e4, e5) -> (Hashtbl.add gamma_val x (eval_expr (Times (e4, e5))); eval_expr e3)
-     | Cat (e4, e5) -> (Hashtbl.add gamma_val x (eval_expr (Cat (e4, e5))); eval_expr e3)
-     | Len (e4) -> (Hashtbl.add gamma_val x (eval_expr (Len (e4))); eval_expr e3)
-     | Let (y, e4, e5) -> (Hashtbl.add gamma_val x (eval_expr (Let (y, e4, e5))); eval_expr e3)
+     | Num n -> (Hashtbl.add gamma_val x (Num n) ; eval_expr_big_step e3)
+     | Str s -> (Hashtbl.add gamma_val x (Str s) ; eval_expr_big_step e3)
+     | Var x -> (Hashtbl.add gamma_val x (Hashtbl.find gamma_val x); eval_expr_big_step e3)
+     | Plus (e4, e5) -> (Hashtbl.add gamma_val x (eval_expr_big_step (Plus (e4, e5))); eval_expr_big_step e3)
+     | Times (e4, e5) -> (Hashtbl.add gamma_val x (eval_expr_big_step (Times (e4, e5))); eval_expr_big_step e3)
+     | Cat (e4, e5) -> (Hashtbl.add gamma_val x (eval_expr_big_step (Cat (e4, e5))); eval_expr_big_step e3)
+     | Len (e4) -> (Hashtbl.add gamma_val x (eval_expr_big_step (Len (e4))); eval_expr_big_step e3)
+     | Let (y, e4, e5) -> (Hashtbl.add gamma_val x (eval_expr_big_step (Let (y, e4, e5))); eval_expr_big_step e3)
     end 
 
 
-let expr_to_value (e: expr) : string = match eval_expr e with
+let expr_to_value (e: expr) : string = match eval_expr_big_step e with
   | Num n -> Stdlib.string_of_int n
   | Str s -> s
   | _ -> "Not defined"
@@ -246,10 +272,6 @@ let rec print_list lst t_exp =
       Format.eprintf "%s\n" (expr_to_value_result x);
       print_list xs t_exp
 
-let pp_stack_expr (s:string) (v:expr) =
-  Format.eprintf "%s ---> " s;
-  Format.eprintf "%s; " (expr_to_string v);
-  Format.eprintf "@."
 
 let () =
   let e1 = (Let("x",Let("y",Plus(Num(3),Num(1)),Plus(Var("y"),Var("y"))),Plus(Var("x"),Var("x")))) in
@@ -266,6 +288,7 @@ let () =
 
   print_list lst String;
 
+
   (* This cases fail! *)
   (* let e1 = (Plus(Str("a"),Str("2"))) in
   let e2 = (Let("x",Let("y", Cat(Cat(Num(1),Str("b")),Cat(Str("c"),Num(2))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
@@ -276,7 +299,7 @@ let () =
   (* let e1 = Times(Plus(Num(1),Num(2)),Num(3)) in *)
   (* let e1 = Len(Cat(Cat(Str("a"),Str("b")),Str("c"))) in *)
   (* let e1 = Times(Div(Div(Num(10),Num(0)),Num(1)),Num(3)) in *)
-  let e2 = Times(Div(Num(1), Len(Str(""))),Num(9)) in
+  (* let e2 = Times(Div(Num(1), Len(Str(""))),Num(9)) in
   (* let e1 = Plus(Num(2), Len(Cat(Str("ab"),Str("cd")))) in *)
   (* let e1 = Div(Num(10), Num(0)) in *)
   let e1 = Let("x", Plus(Num(5),Num(5)), Plus(Num(4),Num(4))) in
@@ -294,7 +317,14 @@ let () =
     | Str_val s -> Format.eprintf "%s\n" (s);
     | Error_val s -> Format.eprintf "%s\n" (s);
 
-  Hashtbl.iter pp_stack_expr gamma_val;
+  Hashtbl.iter pp_stack_expr gamma_val; *)
+
+  let e1 = Div(Num(4),Num(0)) in
+  let res: my_val = eval_expr_small_step e1 gamma_val in 
+   match res with
+    | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
+    | Str_val s -> Format.eprintf "%s\n" (s);
+    | Error_val s -> Format.eprintf "%s\n" (s);
   
   (* let e5 = (Plus(Sub(Sub(Num(30), Num(2)),Num(20)),Num(40))) in 
   let e6 = (Sub(Num(2),Num(30))) in
