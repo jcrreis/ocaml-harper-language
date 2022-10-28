@@ -42,11 +42,8 @@ type expr_c =
   | E_fapply of string * expr
 
 
-let head_reduction (e: expr)  (tbl: (string, expr) Hashtbl.t) : expr = match e with
+let head_reduction (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e with
   | Error s -> Error s
-  | Str s -> Str s
-  | Num n -> Num n
-  | Var x -> Hashtbl.find tbl x
   | Plus (Num n1, Num n2) -> Num (n1 + n2)
   | Times (Num n1, Num n2) -> Num (n1 * n2)
   | Div (_, Num 0) -> Error ("Divisão por zero!")
@@ -54,6 +51,21 @@ let head_reduction (e: expr)  (tbl: (string, expr) Hashtbl.t) : expr = match e w
   | Cat (Str s1, Str s2) -> Str (s1 ^ s2)
   | Len (Str s) -> Num  (String.length s)
   | _ -> assert false
+
+let rec substitute e v x = match e with
+  | Var y -> if x = y then v else e 
+  | Num _ -> e
+  | Str _ -> e
+  | Plus (e1, e2) -> Plus(substitute e1 v x, substitute e2 v x)
+  | Times (e1, e2) -> Times(substitute e1 v x, substitute e2 v x)
+  | Div (e1, e2) -> Div(substitute e1 v x, substitute e2 v x)
+  | Cat (e1, e2) -> Cat(substitute e1 v x, substitute e2 v x)
+  | Len (e1) -> Len(substitute e1 v x)
+  | Let (y, e1, e2) -> 
+    let e3 = substitute e1 v x in
+    if x = y
+    then Let (y, e3, e2)
+    else Let (y, e3, substitute e2 v x) 
 
 let rec expr_to_string (e: expr) : string = match e with
   | Num n -> Stdlib.string_of_int n
@@ -73,7 +85,6 @@ let pp_stack_expr (s:string) (v:expr) =
 
 
 let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = match e with 
-  | Var x ->  (Hashtbl.find tbl x, Hole)
   | Plus (Error s, _) -> (Error s, Hole)
   | Plus (_, Error s) -> (Error s, Hole)
   | Plus (Num n1, Num n2) -> (e, Hole) 
@@ -94,12 +105,9 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = 
   | Cat (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftcat(c, e2))
   | Len (Str s1) -> (e, Hole)
   | Len (e1) -> let r, c = decompose e1 tbl in (r, E_len(c)) 
-  | Let (x, e1, e2) ->  begin match e1 with
-     | Num n -> (Hashtbl.add tbl x (Num n) ; let r, c = decompose e2 tbl in (r, E_rightlet(x, Num n, c)))
-     | Str s -> (Hashtbl.add tbl x (Str s) ; let r, c = decompose e2 tbl in (r, E_rightlet(x, Str s, c)))
-     | Var y -> (Hashtbl.add tbl x (Hashtbl.find tbl y); let r, c = decompose e2 tbl in (r, E_rightlet(x, Var y, c)))
-     | _ -> let r, c = decompose e1 tbl in (r, E_leftlet(x, c, e2))
-    end
+  (* | Let (x, Num n1, e2) -> (substitute e2 (Num n1) x, Hole)
+  | Let (x, Str s1, e2) -> (substitute e2 (Str s1) x, Hole)
+  | Let (x, e1, e2) -> Let(x, decompose e1 tbl, e2) *)
 
 
 
@@ -127,7 +135,7 @@ let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) 
   | Num i -> Num_val i
   | Str s -> Str_val s 
   | Error s -> Error_val s
-  | _ ->  Format.eprintf "%s\n" "AQUI";let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
+  | _ ->  let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
@@ -183,8 +191,8 @@ let rec ts (e: expr) (t_e: t_exp) : t_exp =
     end
 
 
+
 let rec decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e with
-  | Var x -> Hashtbl.find tbl x
   | Plus (Error s, _) -> Error s
   | Plus (_, Error s) -> Error s
   | Plus (Num _, Num _) -> head_reduction e tbl
@@ -205,12 +213,9 @@ let rec decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = 
   | Cat (e1, e2) -> Cat(decompose_small_step e1 tbl, e2)
   | Len (Str _) -> head_reduction e tbl
   | Len (e1) -> Len(decompose_small_step e1 tbl)
-  | Let (x, e1, e2) -> begin match e1 with
-     | Num n -> (Hashtbl.add tbl x (Num n) ; decompose_small_step e2 tbl)
-     | Str s -> (Hashtbl.add tbl x (Str s) ; decompose_small_step e2 tbl)
-     | Var y -> (Hashtbl.add tbl x (Hashtbl.find tbl y); decompose_small_step e2 tbl)
-     | _ -> Let(x, decompose_small_step e1 tbl, e2)
-     end
+  | Let (x, Num n1, e2) -> substitute e2 (Num n1) x
+  | Let (x, Str s1, e2) -> substitute e2 (Str s1) x
+  | Let (x, e1, e2) -> Let(x, decompose_small_step e1 tbl, e2)
 
 
 let rec eval_expr_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : my_val = match e with
@@ -355,7 +360,7 @@ let () =
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
     | Str_val s -> Format.eprintf "%s\n" (s);
     | Error_val s -> Format.eprintf "%s\n" (s);
-  let e1 = Let("x", Plus(Num(5),Num(5)), Plus(Var("x"),Num(4))) in
+  let e1 = Let("x", Plus(Num(5),Num(5)), Div(Var("x"),Num(0))) in
   let res: my_val = eval_expr_small_step e1 gamma_val in 
    match res with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
