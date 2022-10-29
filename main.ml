@@ -37,7 +37,7 @@ type expr_c =
   | E_len of expr_c 
   | E_leftlet of string * expr_c * expr
   | E_rightlet of string * expr * expr_c
-  | E_fdef of string t_exp * t_exp * string * expr_c
+  | E_fdef of string * t_exp * t_exp * string * expr_c
   | E_fapply of string * expr_c
 
 
@@ -81,7 +81,7 @@ let pp_stack_expr (s:string) (v:expr) =
   Format.eprintf "%s; " (expr_to_string v);
   Format.eprintf "@."
 
-
+let functions: (string, expr) Hashtbl.t = Hashtbl.create 64
 
 let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = match e with 
   | Plus (Error s, _) -> (Error s, Hole)
@@ -115,6 +115,8 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = 
      | _ -> (r, E_rightlet (x, Str s1, c))
     end
   | Let (x, e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftlet(x, c, e2))
+  | F_def (fname, t_e, t_e1, x, e1) -> assert false
+  | F_apply (fname, e1) -> assert false
 
 
 let rec fill_context (e_c: expr_c) (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e_c with 
@@ -197,33 +199,37 @@ let rec ts (e: expr) (t_e: t_exp) : t_exp =
 
 
 
-let rec decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e with
+let rec decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) (functions: (string, (expr * string)) Hashtbl.t): expr = match e with
   | Plus (Error s, _) -> Error s
   | Plus (_, Error s) -> Error s
   | Plus (Num _, Num _) -> head_reduction e tbl
-  | Plus (Num n1, e2) -> Plus(Num n1, decompose_small_step e2 tbl)
-  | Plus (e1, e2) -> Plus(decompose_small_step e1 tbl, e2)
+  | Plus (Num n1, e2) -> Plus(Num n1, decompose_small_step e2 tbl functions)
+  | Plus (e1, e2) -> Plus(decompose_small_step e1 tbl functions, e2)
   | Times (Error s, _) -> Error s
   | Times (_, Error s) -> Error s
   | Times (Num _, Num _) -> head_reduction e tbl
-  | Times (Num n1, e2) -> Times(Num n1, decompose_small_step e2 tbl)
-  | Times (e1, e2) -> Times(decompose_small_step e1 tbl, e2)
+  | Times (Num n1, e2) -> Times(Num n1, decompose_small_step e2 tbl functions)
+  | Times (e1, e2) -> Times(decompose_small_step e1 tbl functions, e2)
   | Div (Error s, _) -> Error s
   | Div (_, Error s) -> Error s
   | Div (Num _, Num _) -> head_reduction e tbl
-  | Div (Num n1, e2) -> Div(Num n1, decompose_small_step e2 tbl)
-  | Div (e1, e2) -> Div(decompose_small_step e1 tbl, e2)
+  | Div (Num n1, e2) -> Div(Num n1, decompose_small_step e2 tbl functions)
+  | Div (e1, e2) -> Div(decompose_small_step e1 tbl functions, e2)
   | Cat (Str _, Str _) -> head_reduction e tbl
-  | Cat (Str s1, e2) -> Cat(Str s1, decompose_small_step e2 tbl)
-  | Cat (e1, e2) -> Cat(decompose_small_step e1 tbl, e2)
+  | Cat (Str s1, e2) -> Cat(Str s1, decompose_small_step e2 tbl functions)
+  | Cat (e1, e2) -> Cat(decompose_small_step e1 tbl functions, e2)
   | Len (Str _) -> head_reduction e tbl
-  | Len (e1) -> Len(decompose_small_step e1 tbl)
+  | Len (e1) -> Len(decompose_small_step e1 tbl functions)
   | Let (x, Num n1, e2) -> substitute e2 (Num n1) x
   | Let (x, Str s1, e2) -> substitute e2 (Str s1) x
-  | Let (x, e1, e2) -> Let(x, decompose_small_step e1 tbl, e2)
+  | Let (x, e1, e2) -> Let(x, decompose_small_step e1 tbl functions, e2)
+  | F_def (fname, t_e, t_e1, x, e1) -> Hashtbl.add functions fname (e1, x); head_reduction (Plus((Num(0),Num(0)))) tbl
+  | F_apply (fname, e1) -> let (e2, x) = Hashtbl.find functions fname in 
+    let e_sub = substitute e2 e1 x in
+    decompose_small_step e_sub tbl functions
 
 
-let rec eval_expr_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : my_val = match e with
+let rec eval_expr_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) (functions: (string, (expr * string)) Hashtbl.t) : my_val = match e with
   | Var x -> let e1 = Hashtbl.find tbl x in begin match e1 with 
     | Str s -> Str_val s
     | Num i -> Num_val i
@@ -231,7 +237,7 @@ let rec eval_expr_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) : my_val 
   | Num i -> Num_val i
   | Str s -> Str_val s 
   | Error s -> Error_val s
-  | _-> let e1 = decompose_small_step e tbl in eval_expr_small_step e1 tbl
+  | _-> let e1 = decompose_small_step e tbl functions in eval_expr_small_step e1 tbl functions
 
 
 let rec eval_expr_big_step (e: expr) : expr = match e with
@@ -337,6 +343,7 @@ let () =
 
   print_list lst String; *)
   let gamma_val: (string, expr) Hashtbl.t = Hashtbl.create 64 in
+  let functions: (string, (expr * string)) Hashtbl.t = Hashtbl.create 64 in
   (* let e1 = Times(Plus(Num(1),Num(2)),Num(3)) in *)
   (* let e1 = Len(Cat(Cat(Str("a"),Str("b")),Str("c"))) in *)
   (* let e1 = Times(Div(Div(Num(10),Num(0)),Num(1)),Num(3)) in *)
@@ -359,6 +366,15 @@ let () =
     | Error_val s -> Format.eprintf "%s\n" (s);
 
   Hashtbl.iter pp_stack_expr gamma_val; *)
+
+  let e1 = F_def("teste", Int, Int, "x", Times(Var("x"),Num(2))) in
+  let e2 = F_apply("teste", Num(10)) in 
+  eval_expr_small_step e1 gamma_val functions;
+  let res: my_val = eval_expr_small_step e2 gamma_val functions in 
+  match res with
+   | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
+   | Str_val s -> Format.eprintf "%s\n" (s);
+   | Error_val s -> Format.eprintf "%s\n" (s);
   let e1 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
   let res: my_val = eval_expr_contextual_dynamics e1 gamma_val in
   match res with
@@ -366,7 +382,7 @@ let () =
     | Str_val s -> Format.eprintf "%s\n" (s);
     | Error_val s -> Format.eprintf "%s\n" (s);
   let e1 = Let("x", Plus(Num(5),Num(5)), Div(Var("x"),Num(0))) in
-  let res: my_val = eval_expr_small_step e1 gamma_val in 
+  let res: my_val = eval_expr_small_step e1 gamma_val functions in 
    match res with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
     | Str_val s -> Format.eprintf "%s\n" (s);
