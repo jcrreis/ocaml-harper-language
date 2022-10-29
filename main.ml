@@ -20,7 +20,7 @@ type expr =
   | Cat of expr * expr
   | Len of expr
   | Let of string * expr * expr
-  | F_def of string (*f_name*) * string (* x1 *) * expr (* e2 *) (* Usar hastables para guardar? *)
+  | F_def of string (*f_name*) * t_exp * t_exp * string (* x1 *) * expr (* e2 *) (* Usar hastables para guardar? *)
   | F_apply of string (*f_name*) * expr (* arg *)
   
  
@@ -37,9 +37,8 @@ type expr_c =
   | E_len of expr_c 
   | E_leftlet of string * expr_c * expr
   | E_rightlet of string * expr * expr_c
-  | E_leftfdef of string * expr_c * expr
-  | E_rightfdef of string * expr * expr_c
-  | E_fapply of string * expr
+  | E_fdef of string t_exp * t_exp * string * expr_c
+  | E_fapply of string * expr_c
 
 
 let head_reduction (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e with
@@ -141,7 +140,7 @@ let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) 
   | Num i -> Num_val i
   | Str s -> Str_val s 
   | Error s -> Error_val s
-  | _ ->  Format.eprintf "%s ---> " "AQUI"; let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
+  | _ -> let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
