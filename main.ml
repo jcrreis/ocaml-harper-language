@@ -105,12 +105,12 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = 
   | Cat (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftcat(c, e2))
   | Len (Str s1) -> (e, Hole)
   | Len (e1) -> let r, c = decompose e1 tbl in (r, E_len(c)) 
-  | Let (x, Num n1, e2) -> let r, c = decompose (substitute e2 (Num n1) x) tbl in 
+  | Let (x, Num n1, e2) -> let e3 = substitute e2 (Num n1) x in let r, c = decompose e3 tbl in 
     begin match c with
       | Hole -> (r, c)
       | _ -> (r, E_rightlet (x, Num n1, c))
     end
-  | Let (x, Str s1, e2) -> let r, c = decompose (substitute e2 (Str s1) x) tbl in 
+  | Let (x, Str s1, e2) -> let e3 = substitute e2 (Str s1) x in let r, c = decompose e3 tbl in 
     begin match c with
      | Hole -> (r, c)
      | _ -> (r, E_rightlet (x, Str s1, c))
@@ -141,7 +141,7 @@ let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) 
   | Num i -> Num_val i
   | Str s -> Str_val s 
   | Error s -> Error_val s
-  | _ ->  let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
+  | _ ->  Format.eprintf "%s ---> " "AQUI"; let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
@@ -360,7 +360,7 @@ let () =
     | Error_val s -> Format.eprintf "%s\n" (s);
 
   Hashtbl.iter pp_stack_expr gamma_val; *)
-  let e1 = Let("x", Plus(Num(5),Num(5)), Div(Var("x"),Num(1))) in
+  let e1 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
   let res: my_val = eval_expr_contextual_dynamics e1 gamma_val in
   match res with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
