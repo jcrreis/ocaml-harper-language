@@ -52,7 +52,7 @@ let head_reduction (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e wi
   | Len (Str s) -> Num  (String.length s)
   | _ -> assert false
 
-let rec substitute e v x = match e with
+let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
   | Var y -> if x = y then v else e 
   | Num _ -> e
   | Str _ -> e
@@ -105,11 +105,17 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = 
   | Cat (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftcat(c, e2))
   | Len (Str s1) -> (e, Hole)
   | Len (e1) -> let r, c = decompose e1 tbl in (r, E_len(c)) 
-  (* | Let (x, Num n1, e2) -> (substitute e2 (Num n1) x, Hole)
-  | Let (x, Str s1, e2) -> (substitute e2 (Str s1) x, Hole)
-  | Let (x, e1, e2) -> Let(x, decompose e1 tbl, e2) *)
-
-
+  | Let (x, Num n1, e2) -> let r, c = decompose (substitute e2 (Num n1) x) tbl in 
+    begin match c with
+      | Hole -> (r, c)
+      | _ -> (r, E_rightlet (x, Num n1, c))
+    end
+  | Let (x, Str s1, e2) -> let r, c = decompose (substitute e2 (Str s1) x) tbl in 
+    begin match c with
+     | Hole -> (r, c)
+     | _ -> (r, E_rightlet (x, Str s1, c))
+    end
+  | Let (x, e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftlet(x, c, e2))
 
 
 let rec fill_context (e_c: expr_c) (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e_c with 
@@ -354,7 +360,7 @@ let () =
     | Error_val s -> Format.eprintf "%s\n" (s);
 
   Hashtbl.iter pp_stack_expr gamma_val; *)
-  let e1 = Let("x", Plus(Num(5),Num(5)), Plus(Var("x"),Num(4))) in
+  let e1 = Let("x", Plus(Num(5),Num(5)), Div(Var("x"),Num(1))) in
   let res: my_val = eval_expr_contextual_dynamics e1 gamma_val in
   match res with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
