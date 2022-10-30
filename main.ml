@@ -81,7 +81,7 @@ let pp_stack_expr (s:string) (v:expr) =
   Format.eprintf "%s; " (expr_to_string v);
   Format.eprintf "@."
 
-let functions: (string, expr) Hashtbl.t = Hashtbl.create 64
+(* let functions: (string, expr) Hashtbl.t = Hashtbl.create 64 *)
 
 let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = match e with 
   | Plus (Error s, _) -> (Error s, Hole)
@@ -149,21 +149,21 @@ let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
 
 let gamma_val: (string, expr) Hashtbl.t = Hashtbl.create 64
 
-let rec ts (e: expr) (t_e: t_exp) : t_exp =
+let rec ts (e: expr) (t_e: t_exp) (functions: (string, (expr * string)) Hashtbl.t): t_exp =
   match t_e with
   | Int | String ->
     begin match e with
       | Var x -> if Hashtbl.find gamma x = t_e then t_e else None
       | Num _ -> if Int = t_e then Int else None
       | Str _ -> if String = t_e then String else None
-      | Plus (e1, e2) -> if (Int = t_e && (ts e1 Int) = Int && (ts e2 Int) = Int) then Int else None
-      | Times (e1, e2) -> if (Int = t_e && (ts e1 Int) = Int && (ts e2 Int) = Int) then Int else None
-      | Cat (e1, e2) -> if (String = t_e && (ts e1 String) = String && (ts e2 String) = String) then String else None
-      | Len (e1) -> if(Int = t_e && (ts e1 String) = String) then Int else None
+      | Plus (e1, e2) -> if (Int = t_e && (ts e1 Int functions) = Int && (ts e2 Int functions) = Int) then Int else None
+      | Times (e1, e2) -> if (Int = t_e && (ts e1 Int functions) = Int && (ts e2 Int functions) = Int) then Int else None
+      | Cat (e1, e2) -> if (String = t_e && (ts e1 String functions) = String && (ts e2 String functions) = String) then String else None
+      | Len (e1) -> if(Int = t_e && (ts e1 String functions) = String) then Int else None
       | Let (x, e1, e2) ->
-        let ty_x = ts e1 Infer in
+        let ty_x = ts e1 Infer functions in
         Hashtbl.add gamma x ty_x;
-        ts e2 t_e
+        ts e2 t_e functions
     end
   | None -> None
   | Infer ->
@@ -172,29 +172,29 @@ let rec ts (e: expr) (t_e: t_exp) : t_exp =
       | Num n -> Int
       | Str s -> String
       | Plus (e1, e2) ->
-        begin match ts e1 Int, ts e2 Int with
+        begin match ts e1 Int functions, ts e2 Int functions with
           | Int, Int -> Int
           | _ -> None
         end
       | Times (e1, e2) ->
-        begin match ts e1 Int, ts e2 Int with
+        begin match ts e1 Int functions, ts e2 Int functions with
           | Int, Int -> Int
           | _ -> None
         end
       | Cat (e1, e2) ->
-        begin match ts e1 String, ts e2 String with
+        begin match ts e1 String functions, ts e2 String functions with
           | String, String -> String
           | _ -> None
         end
       | Len (e1) ->
-        begin match ts e1 String with
+        begin match ts e1 String functions with
           | String -> Int
           | _ -> None
         end
       | Let (x, e1, e2) -> 
-          let ty_x = ts e1 Infer in
+          let ty_x = ts e1 Infer functions in
           Hashtbl.add gamma x ty_x;
-          ts e2 t_e
+          ts e2 t_e functions
     end
 
 
@@ -300,7 +300,7 @@ let type_exp_to_string (t_e: t_exp) : string = match t_e with
   | None -> "None"
   | Infer -> "Infer"
 
-let expr_to_type (e: expr) (t_e: t_exp) : string = match ts e t_e with
+let expr_to_type (e: expr) (t_e: t_exp) (functions: (string, (expr * string)) Hashtbl.t): string = match ts e t_e functions with
   | Int -> "Int"
   | String -> "String"
   | None -> "None"
@@ -309,15 +309,16 @@ let expr_to_type (e: expr) (t_e: t_exp) : string = match ts e t_e with
 
 let expr_to_value_result (e: expr) : string =  expr_to_string e ^ " = " ^ expr_to_value e 
 
-let expr_to_type_result (e: expr) (t_e: t_exp) : string = expr_to_string e ^ " : " ^ type_exp_to_string (t_e) ^ " = " ^  expr_to_type e t_e 
+let expr_to_type_result (e: expr) (t_e: t_exp) (functions: (string, (expr * string)) Hashtbl.t): string = 
+    expr_to_string e ^ " : " ^ type_exp_to_string (t_e) ^ " = " ^  expr_to_type e t_e functions
 
-let rec print_list lst t_exp =
+let rec print_list lst t_exp functions =
   match lst with
   | [] -> ()
   | x :: xs -> 
-      Format.eprintf "%s\n" (expr_to_type_result x t_exp);
+      Format.eprintf "%s\n" (expr_to_type_result x t_exp functions);
       Format.eprintf "%s\n" (expr_to_value_result x);
-      print_list xs t_exp
+      print_list xs t_exp functions
 
 
 let () =
