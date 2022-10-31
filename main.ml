@@ -3,16 +3,19 @@ type t_exp =
   | String
   | None
   | Infer
+  | Fun of string * t_exp * t_exp
 
 type my_val =
   | Num_val of int
   | Str_val of string
   | Error_val of string
+  | Fun_val 
 
 type expr =
   | Var of string
   | Num of int
   | Str of string  
+  | Fun
   | Error of string
   | Plus of expr * expr
   | Div of expr * expr
@@ -42,6 +45,7 @@ type expr_c =
 
 
 let head_reduction (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e with
+  | Fun -> Fun
   | Error s -> Error s
   | Plus (Num n1, Num n2) -> Num (n1 + n2)
   | Times (Num n1, Num n2) -> Num (n1 * n2)
@@ -49,6 +53,9 @@ let head_reduction (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e wi
   | Div (Num n1, Num n2) -> Num (n1 / n2)
   | Cat (Str s1, Str s2) -> Str (s1 ^ s2)
   | Len (Str s) -> Num  (String.length s)
+  | _ -> assert false
+
+let rec free_variables (e: expr) : expr list = match e with
   | _ -> assert false
 
 let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
@@ -83,40 +90,43 @@ let pp_stack_expr (s:string) (v:expr) =
 
 (* let functions: (string, expr) Hashtbl.t = Hashtbl.create 64 *)
 
-let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) : (expr * expr_c) = match e with 
+let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) (functions: (string, (expr * string)) Hashtbl.t): (expr * expr_c) = match e with 
   | Plus (Error s, _) -> (Error s, Hole)
   | Plus (_, Error s) -> (Error s, Hole)
   | Plus (Num n1, Num n2) -> (e, Hole) 
-  | Plus (Num n1, e2) -> let r, c = decompose e2 tbl in (r, E_rightplus (Num n1, c))
-  | Plus (e1, e2) -> let r,c = decompose e1 tbl in (r, E_leftplus(c, e2))
+  | Plus (Num n1, e2) -> let r, c = decompose e2 tbl functions in (r, E_rightplus (Num n1, c))
+  | Plus (e1, e2) -> let r,c = decompose e1 tbl functions in (r, E_leftplus(c, e2))
   | Times (Error s, _) -> (Error s, Hole)
   | Times (_, Error s) -> (Error s, Hole)
   | Times (Num n1, Num n2) -> (e, Hole)
-  | Times (Num n1, e2) -> let r, c = decompose e2 tbl in (r, E_righttimes (Num n1, c))
-  | Times (e1, e2) -> let r, c = decompose e1 tbl in (r, E_lefttimes(c, e2))
+  | Times (Num n1, e2) -> let r, c = decompose e2 tbl functions in (r, E_righttimes (Num n1, c))
+  | Times (e1, e2) -> let r, c = decompose e1 tbl functions in (r, E_lefttimes(c, e2))
   | Div (Error s, _) -> (Error s, Hole)
   | Div (_, Error s) -> (Error s, Hole)
   | Div (Num n1, Num n2) -> (e, Hole)
-  | Div (Num n1, e2) -> let r, c = decompose e2 tbl in (r, E_rightdiv (Num n1, c))
-  | Div (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftdiv(c, e2))
+  | Div (Num n1, e2) -> let r, c = decompose e2 tbl functions in (r, E_rightdiv (Num n1, c))
+  | Div (e1, e2) -> let r, c = decompose e1 tbl functions in (r, E_leftdiv(c, e2))
   | Cat (Str s1, Str s2) -> (e, Hole)
-  | Cat (Str n1, e2) -> let r, c = decompose e2 tbl in (r, E_rightcat (Str n1, c))
-  | Cat (e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftcat(c, e2))
+  | Cat (Str n1, e2) -> let r, c = decompose e2 tbl functions in (r, E_rightcat (Str n1, c))
+  | Cat (e1, e2) -> let r, c = decompose e1 tbl functions in (r, E_leftcat(c, e2))
   | Len (Str s1) -> (e, Hole)
-  | Len (e1) -> let r, c = decompose e1 tbl in (r, E_len(c)) 
-  | Let (x, Num n1, e2) -> let e3 = substitute e2 (Num n1) x in let r, c = decompose e3 tbl in 
+  | Len (e1) -> let r, c = decompose e1 tbl functions in (r, E_len(c)) 
+  | Let (x, Num n1, e2) -> let e3 = substitute e2 (Num n1) x in let r, c = decompose e3 tbl functions in 
     begin match c with
       | Hole -> (r, c)
       | _ -> (r, E_rightlet (x, Num n1, c))
     end
-  | Let (x, Str s1, e2) -> let e3 = substitute e2 (Str s1) x in let r, c = decompose e3 tbl in 
+  | Let (x, Str s1, e2) -> let e3 = substitute e2 (Str s1) x in let r, c = decompose e3 tbl functions in 
     begin match c with
      | Hole -> (r, c)
      | _ -> (r, E_rightlet (x, Str s1, c))
     end
-  | Let (x, e1, e2) -> let r, c = decompose e1 tbl in (r, E_leftlet(x, c, e2))
-  | F_def (fname, t_e, t_e1, x, e1) -> assert false
-  | F_apply (fname, e1) -> assert false
+  | Let (x, e1, e2) -> let r, c = decompose e1 tbl functions in (r, E_leftlet(x, c, e2))
+  | F_def (fname, _, _, x, e1) -> Hashtbl.add functions fname (e1, x); (Fun, Hole)
+  | F_apply (fname, e1) -> let (e2, x) = Hashtbl.find functions fname in 
+    let e_sub = substitute e2 e1 x in
+    decompose e_sub tbl functions
+
 
 
 let rec fill_context (e_c: expr_c) (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e_c with 
@@ -134,7 +144,7 @@ let rec fill_context (e_c: expr_c) (e: expr) (tbl: (string, expr) Hashtbl.t) : e
   | E_rightlet (x, e1, e2) -> Let (x, e1, fill_context e2 e tbl)
 
 
-let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) : my_val = match e with 
+let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) (functions: (string, (expr * string)) Hashtbl.t): my_val = match e with 
   | Var x -> let e1 = Hashtbl.find tbl x in begin match e1 with 
     | Str s -> Str_val s
     | Num i -> Num_val i
@@ -142,7 +152,9 @@ let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) 
   | Num i -> Num_val i
   | Str s -> Str_val s 
   | Error s -> Error_val s
-  | _ -> let e_d, e_c = decompose e tbl in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in eval_expr_contextual_dynamics e2 tbl
+  | Fun -> Fun_val
+  | _ -> let e_d, e_c = decompose e tbl functions in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in 
+          eval_expr_contextual_dynamics e2 tbl functions
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
@@ -223,7 +235,7 @@ let rec decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) (function
   | Let (x, Num n1, e2) -> substitute e2 (Num n1) x
   | Let (x, Str s1, e2) -> substitute e2 (Str s1) x
   | Let (x, e1, e2) -> Let(x, decompose_small_step e1 tbl functions, e2)
-  | F_def (fname, t_e, t_e1, x, e1) -> Hashtbl.add functions fname (e1, x); head_reduction (Plus((Num(0),Num(0)))) tbl
+  | F_def (fname, t_e, t_e1, x, e1) -> Hashtbl.add functions fname (e1, x); Fun
   | F_apply (fname, e1) -> let (e2, x) = Hashtbl.find functions fname in 
     let e_sub = substitute e2 e1 x in
     decompose_small_step e_sub tbl functions
@@ -237,6 +249,7 @@ let rec eval_expr_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) (function
   | Num i -> Num_val i
   | Str s -> Str_val s 
   | Error s -> Error_val s
+  | Fun -> Fun_val
   | _-> let e1 = decompose_small_step e tbl functions in eval_expr_small_step e1 tbl functions
 
 
@@ -370,13 +383,14 @@ let () =
 
   let e1 = F_def("teste", Int, Int, "x", Times(Var("x"),Num(2))) in
   let e2 = F_apply("teste", Num(10)) in 
-  eval_expr_small_step e1 gamma_val functions;
-  let res: my_val = eval_expr_small_step e2 gamma_val functions in 
+  let res = eval_expr_contextual_dynamics e1 gamma_val functions in 
+  let res: my_val = eval_expr_contextual_dynamics e2 gamma_val functions in 
   match res with
    | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
    | Str_val s -> Format.eprintf "%s\n" (s);
    | Error_val s -> Format.eprintf "%s\n" (s);
-  let e1 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
+   | Fun_val -> Format.eprintf "%s\n" "Função definida";
+  (* let e1 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
   let res: my_val = eval_expr_contextual_dynamics e1 gamma_val in
   match res with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
@@ -389,7 +403,7 @@ let () =
     | Str_val s -> Format.eprintf "%s\n" (s);
     | Error_val s -> Format.eprintf "%s\n" (s);
   
-  Hashtbl.iter pp_stack_expr gamma_val;
+  Hashtbl.iter pp_stack_expr gamma_val; *)
   (* let e5 = (Plus(Sub(Sub(Num(30), Num(2)),Num(20)),Num(40))) in 
   let e6 = (Sub(Num(2),Num(30))) in
   let e7 =  (Cat_e(Str("2"),Plus(Num(1),Num(2)))) in
