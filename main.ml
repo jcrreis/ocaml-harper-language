@@ -64,7 +64,9 @@ let rec free_variables (e: expr) : string list = match e with
   | Div (e1, e2) -> free_variables e1 @ free_variables e2
   | Cat (e1, e2) -> free_variables e1 @ free_variables e2
   | Len (e1) -> free_variables e1 
-  | _ -> assert false
+  | Let (x, e1, e2) -> List.filter (fun (k') -> x <> k') (free_variables e1 @ free_variables e2)
+  | F_def (_, _, _, x, e1) -> List.filter (fun (k') -> x <> k') (free_variables e1)
+  | F_apply (_, e1) -> []
 
 let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
   | Var y -> if x = y then v else e 
@@ -390,8 +392,13 @@ let () =
     | Error_val s -> Format.eprintf "%s\n" (s);
 
   Hashtbl.iter pp_stack_expr gamma_val; *)
+  let e1 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
+  (* let e1 = Plus(Var("x"),Var("y")) in *)
+  let lst = free_variables e1 in
+  Format.eprintf "AQUI";
+  List.iter (Printf.printf "%s ") lst
 
-  let e1 = F_def("teste", Int, Int, "x", Let("x", Plus(Num(10),Var("x")),Plus(Var("x"),Var("x")))) in
+  (* let e1 = F_def("teste", Int, Int, "x", Let("x", Plus(Num(10),Var("x")),Plus(Var("x"),Var("x")))) in
   let e2 = F_apply("teste", Num(10)) in 
   let res = eval_expr_contextual_dynamics e1 gamma_val functions in 
   let res: my_val = eval_expr_contextual_dynamics e2 gamma_val functions in 
@@ -399,7 +406,7 @@ let () =
    | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
    | Str_val s -> Format.eprintf "%s\n" (s);
    | Error_val s -> Format.eprintf "%s\n" (s);
-   | Fun_val -> Format.eprintf "%s\n" "Função definida";
+   | Fun_val -> Format.eprintf "%s\n" "Função definida"; *)
   (* let e1 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
   let res: my_val = eval_expr_contextual_dynamics e1 gamma_val in
   match res with
