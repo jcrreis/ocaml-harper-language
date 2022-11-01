@@ -69,7 +69,7 @@ let rec free_variables (e: expr) : string list = match e with
   | F_apply (_, e1) -> []
 
 let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
-  | Var y -> if x = y then v else e 
+  | Var y -> if (List.mem "x" (free_variables e)) then e else if x = y then v else e 
   | Num _ -> e
   | Str _ -> e
   | Plus (e1, e2) -> Plus(substitute e1 v x, substitute e2 v x)
@@ -395,7 +395,6 @@ let () =
   let e1 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
   (* let e1 = Plus(Var("x"),Var("y")) in *)
   let lst = free_variables e1 in
-  Format.eprintf "AQUI";
   List.iter (Printf.printf "%s ") lst
 
   (* let e1 = F_def("teste", Int, Int, "x", Let("x", Plus(Num(10),Var("x")),Plus(Var("x"),Var("x")))) in
