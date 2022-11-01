@@ -64,8 +64,8 @@ let rec free_variables (e: expr) : string list = match e with
   | Div (e1, e2) -> free_variables e1 @ free_variables e2
   | Cat (e1, e2) -> free_variables e1 @ free_variables e2
   | Len (e1) -> free_variables e1 
-  | Let (x, e1, e2) -> List.filter (fun (k') -> x <> k') (free_variables e1 @ free_variables e2)
-  | F_def (_, _, _, x, e1) -> List.filter (fun (k') -> x <> k') (free_variables e1)
+  | Let (x, e1, e2) -> List.filter (fun (x') -> x <> x') (free_variables e1 @ free_variables e2)
+  | F_def (_, _, _, x, e1) -> List.filter (fun (x') -> x <> x') (free_variables e1)
   | F_apply (_, e1) -> []
 
 let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
