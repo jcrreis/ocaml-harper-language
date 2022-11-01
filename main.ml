@@ -55,7 +55,15 @@ let head_reduction (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e wi
   | Len (Str s) -> Num  (String.length s)
   | _ -> assert false
 
-let rec free_variables (e: expr) : expr list = match e with
+let rec free_variables (e: expr) : string list = match e with
+  | Var x -> [x]
+  | Num _ -> []
+  | Str _ -> []
+  | Plus (e1, e2) -> free_variables e1 @ free_variables e2
+  | Times (e1, e2) -> free_variables e1 @ free_variables e2
+  | Div (e1, e2) -> free_variables e1 @ free_variables e2
+  | Cat (e1, e2) -> free_variables e1 @ free_variables e2
+  | Len (e1) -> free_variables e1 
   | _ -> assert false
 
 let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
@@ -153,8 +161,10 @@ let rec eval_expr_contextual_dynamics (e: expr) (tbl: (string, expr) Hashtbl.t) 
   | Str s -> Str_val s 
   | Error s -> Error_val s
   | Fun -> Fun_val
-  | _ -> let e_d, e_c = decompose e tbl functions in let e1 = head_reduction e_d tbl in let e2 = fill_context e_c e1 tbl in 
-          eval_expr_contextual_dynamics e2 tbl functions
+  | _ -> let e_d, e_c = decompose e tbl functions in 
+         let e1 = head_reduction e_d tbl in 
+         let e2 = fill_context e_c e1 tbl in 
+         eval_expr_contextual_dynamics e2 tbl functions
 
 
 let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
