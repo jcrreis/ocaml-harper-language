@@ -173,7 +173,7 @@ let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
 
 let gamma_val: (string, expr) Hashtbl.t = Hashtbl.create 64
 
-let rec ts (e: expr) (t_e: t_exp) (functions: (string, (expr * string)) Hashtbl.t): t_exp =
+let rec ts (e: expr) (t_e: t_exp) (functions: (string, (t_exp * t_exp)) Hashtbl.t): t_exp =
   match t_e with
   | Int | String ->
     begin match e with
@@ -188,6 +188,14 @@ let rec ts (e: expr) (t_e: t_exp) (functions: (string, (expr * string)) Hashtbl.
         let ty_x = ts e1 Infer functions in
         Hashtbl.add gamma x ty_x;
         ts e2 t_e functions
+      | F_def (fname, t_e (*tau1*), t_e1 (*tau2*), x, e1 (*e2*)) -> 
+          if((*x1: tau1*) true && t_e1 = (ts e1 t_e1 functions) (*e2: tau2*) && true (*f(tau1): tau2*) && true(*e: tau*))
+          then (Hashtbl.add functions x (t_e, t_e1); Fun(fname, t_e, t_e1))
+          else None
+      | F_apply (fname, e1) -> let (t_e, t_e1) = Hashtbl.find functions fname in
+        if(true (*f(tau1): tau2*) && t_e = (ts e1 t_e functions))
+        then t_e1
+        else None
     end
   | None -> None
   | Infer ->
@@ -219,6 +227,8 @@ let rec ts (e: expr) (t_e: t_exp) (functions: (string, (expr * string)) Hashtbl.
           let ty_x = ts e1 Infer functions in
           Hashtbl.add gamma x ty_x;
           ts e2 t_e functions
+      | F_def (fname, t_e, t_e1, x, e1) -> assert false
+      | F_apply (fname, e1) -> assert false 
     end
 
 
@@ -325,7 +335,7 @@ let type_exp_to_string (t_e: t_exp) : string = match t_e with
   | None -> "None"
   | Infer -> "Infer"
 
-let expr_to_type (e: expr) (t_e: t_exp) (functions: (string, (expr * string)) Hashtbl.t): string = match ts e t_e functions with
+let expr_to_type (e: expr) (t_e: t_exp) (functions: (string, (t_exp * t_exp)) Hashtbl.t): string = match ts e t_e functions with
   | Int -> "Int"
   | String -> "String"
   | None -> "None"
@@ -334,7 +344,7 @@ let expr_to_type (e: expr) (t_e: t_exp) (functions: (string, (expr * string)) Ha
 
 let expr_to_value_result (e: expr) : string =  expr_to_string e ^ " = " ^ expr_to_value e 
 
-let expr_to_type_result (e: expr) (t_e: t_exp) (functions: (string, (expr * string)) Hashtbl.t): string = 
+let expr_to_type_result (e: expr) (t_e: t_exp) (functions: (string, (t_exp * t_exp)) Hashtbl.t): string = 
     expr_to_string e ^ " : " ^ type_exp_to_string (t_e) ^ " = " ^  expr_to_type e t_e functions
 
 let rec print_list lst t_exp functions =
@@ -392,7 +402,7 @@ let () =
     | Error_val s -> Format.eprintf "%s\n" (s);
 
   Hashtbl.iter pp_stack_expr gamma_val; *)
-  let e1 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("x"),Var("x")))) in
+  let e1 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("z"),Var("x")))) in
   (* let e1 = Plus(Var("x"),Var("y")) in *)
   let lst = free_variables e1 in
   List.iter (Printf.printf "%s ") lst
