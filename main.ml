@@ -23,7 +23,7 @@ type expr =
   | Cat of expr * expr
   | Len of expr
   | Let of string * expr * expr
-  | F_def of string (*f_name*) * t_exp * t_exp * string (* x1 *) * expr (* e2 *) (* Usar hastables para guardar? *)
+  | F_def of string (*f_name*) * t_exp * t_exp * string (* x1 *) * expr (* e2 *) * expr (*e*) (* Usar hastables para guardar? *)
   | F_apply of string (*f_name*) * expr (* arg *)
   
  
@@ -54,7 +54,8 @@ let head_reduction (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e wi
   | Cat (Str s1, Str s2) -> Str (s1 ^ s2)
   | Len (Str s) -> Num  (String.length s)
   | _ -> assert false
-
+  
+(* trocar para set de strings *)
 let rec free_variables (e: expr) : string list = match e with
   | Var x -> [x]
   | Num _ -> []
@@ -64,12 +65,16 @@ let rec free_variables (e: expr) : string list = match e with
   | Div (e1, e2) -> free_variables e1 @ free_variables e2
   | Cat (e1, e2) -> free_variables e1 @ free_variables e2
   | Len (e1) -> free_variables e1 
-  | Let (x, e1, e2) -> List.filter (fun (x') -> x <> x') (free_variables e1 @ free_variables e2)
-  | F_def (_, _, _, x, e1) -> List.filter (fun (x') -> x <> x') (free_variables e1)
+  | Let (x, e1, e2) ->  free_variables e1 @ (List.filter (fun (x') -> x <> x') (free_variables e2))
+  | F_def (_, _, _, x, e1, e) -> (List.filter (fun (x') -> x <> x') (free_variables e1)) @ free_variables e
   | F_apply (_, e1) -> free_variables e1
 
+let generate_unique_name (xs: string list) : string = assert false
+
+let rename (e: expr) (x: string) (x': string) : expr =  assert false
+
 let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
-  | Var y -> if (List.mem "x" (free_variables e)) then e else if x = y then v else e 
+  | Var y -> if (List.mem "x" (free_variables e)) then e (*substitute (rename e x 'x') v 'x'*)  else if x = y then v else e 
   | Num _ -> e
   | Str _ -> e
   | Plus (e1, e2) -> Plus(substitute e1 v x, substitute e2 v x)
@@ -132,7 +137,7 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) (functions: (string,
      | _ -> (r, E_rightlet (x, Str s1, c))
     end
   | Let (x, e1, e2) -> let r, c = decompose e1 tbl functions in (r, E_leftlet(x, c, e2))
-  | F_def (fname, _, _, x, e1) -> Hashtbl.add functions fname (e1, x); (Fun, Hole)
+  | F_def (fname, _, _, x, e1, e) -> Hashtbl.add functions fname (e1, x); (e, Hole)
   | F_apply (fname, e1) -> let (e2, x) = Hashtbl.find functions fname in 
     let e_sub = substitute e2 e1 x in
     decompose e_sub tbl functions
@@ -188,7 +193,7 @@ let rec ts (e: expr) (t_e: t_exp) (functions: (string, (t_exp * t_exp)) Hashtbl.
         let ty_x = ts e1 Infer functions in
         Hashtbl.add gamma x ty_x;
         ts e2 t_e functions
-      | F_def (fname, t_e (*tau1*), t_e1 (*tau2*), x, e1 (*e2*)) -> 
+      | F_def (fname, t_e (*tau1*), t_e1 (*tau2*), x,e1 (*e2*), e) -> 
           if((*x1: tau1*) true && t_e1 = (ts e1 t_e1 functions) (*e2: tau2*) && true (*f(tau1): tau2*) && true(*e: tau*))
           then (Hashtbl.add functions x (t_e, t_e1); Fun(fname, t_e, t_e1))
           else None
@@ -227,7 +232,7 @@ let rec ts (e: expr) (t_e: t_exp) (functions: (string, (t_exp * t_exp)) Hashtbl.
           let ty_x = ts e1 Infer functions in
           Hashtbl.add gamma x ty_x;
           ts e2 t_e functions
-      | F_def (fname, t_e, t_e1, x, e1) -> assert false
+      | F_def (fname, t_e, t_e1, x, e1, e) -> assert false
       | F_apply (fname, e1) -> assert false 
     end
 
@@ -257,7 +262,7 @@ let rec decompose_small_step (e: expr) (tbl: (string, expr) Hashtbl.t) (function
   | Let (x, Num n1, e2) -> substitute e2 (Num n1) x
   | Let (x, Str s1, e2) -> substitute e2 (Str s1) x
   | Let (x, e1, e2) -> Let(x, decompose_small_step e1 tbl functions, e2)
-  | F_def (fname, t_e, t_e1, x, e1) -> Hashtbl.add functions fname (e1, x); Fun
+  | F_def (fname, t_e, t_e1, x, e1, e) -> Hashtbl.add functions fname (e1, x); decompose_small_step e tbl functions 
   | F_apply (fname, e1) -> let (e2, x) = Hashtbl.find functions fname in 
     let e_sub = substitute e2 e1 x in
     decompose_small_step e_sub tbl functions
