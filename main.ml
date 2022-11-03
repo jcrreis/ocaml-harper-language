@@ -58,16 +58,16 @@ let head_reduction (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e wi
   
 (* trocar para set de strings *)
 let rec free_variables (e: expr) : SS.t = match e with
-  | Var x -> [x]
-  | Num _ -> []
-  | Str _ -> []
-  | Plus (e1, e2) -> free_variables e1 @ free_variables e2
-  | Times (e1, e2) -> free_variables e1 @ free_variables e2
-  | Div (e1, e2) -> free_variables e1 @ free_variables e2
-  | Cat (e1, e2) -> free_variables e1 @ free_variables e2
+  | Var x -> SS.singleton x 
+  | Num _ -> SS.empty
+  | Str _ -> SS.empty
+  | Plus (e1, e2) -> SS.union (free_variables e1) (free_variables e2)
+  | Times (e1, e2) -> SS.union (free_variables e1) (free_variables e2)
+  | Div (e1, e2) -> SS.union (free_variables e1) (free_variables e2)
+  | Cat (e1, e2) -> SS.union (free_variables e1) (free_variables e2)
   | Len (e1) -> free_variables e1 
-  | Let (x, e1, e2) ->  free_variables e1 @ (List.filter (fun (x') -> x <> x') (free_variables e2))
-  | F_def (_, _, _, x, e1, e) -> (List.filter (fun (x') -> x <> x') (free_variables e1)) @ free_variables e
+  | Let (x, e1, e2) ->  SS.union (free_variables e1) ((SS.filter (fun (x') -> x <> x') (free_variables e2)))
+  | F_def (_, _, _, x, e1, e) -> SS.union ((SS.filter (fun (x') -> x <> x') (free_variables e1))) (free_variables e)
   | F_apply (_, e1) -> free_variables e1
 
 let generate_unique_name (xs: string list) : string = assert false
@@ -75,7 +75,7 @@ let generate_unique_name (xs: string list) : string = assert false
 let rename (e: expr) (x: string) (x': string) : expr =  assert false
 
 let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
-  | Var y -> if (List.mem "x" (free_variables e)) then e (*substitute (rename e x 'x') v 'x'*)  else if x = y then v else e 
+  | Var y -> if (SS.mem "x" (free_variables e)) then e (*substitute (rename e x 'x') v 'x'*)  else if x = y then v else e 
   | Num _ -> e
   | Str _ -> e
   | Plus (e1, e2) -> Plus(substitute e1 v x, substitute e2 v x)
