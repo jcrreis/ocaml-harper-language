@@ -56,7 +56,7 @@ let head_reduction (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e wi
   | Len (Str s) -> Num  (String.length s)
   | _ -> assert false
   
-(* trocar para set de strings *)
+  
 let rec free_variables (e: expr) : SS.t = match e with
   | Var x -> SS.singleton x 
   | Num _ -> SS.empty
@@ -411,7 +411,9 @@ let () =
   let e1 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("z"),Var("x")))) in
   (* let e1 = Plus(Var("x"),Var("y")) in *)
   let lst = free_variables e1 in
-  List.iter (Printf.printf "%s ") lst
+  let print_set s = 
+    SS.iter print_endline s in
+  print_set lst
 
   (* let e1 = F_def("teste", Int, Int, "x", Let("x", Plus(Num(10),Var("x")),Plus(Var("x"),Var("x")))) in
   let e2 = F_apply("teste", Num(10)) in 
