@@ -71,7 +71,7 @@ let rec free_variables (e: expr) : SS.t = match e with
   | F_apply (_, e1) -> free_variables e1
 
 
-let rec gen_random_string (length: int) (s: string)= match length with 
+let rec gen_random_string (length: int) (s: string) = match length with 
  | 0 -> s
  | _ -> Random.self_init (); 
     gen_random_string (length-1) (s ^ String.make 1 (Char.chr (97 + (Random.int 26))))
