@@ -1,4 +1,3 @@
-module SS = Set.Make(String)
 type t_exp =
   | Int
   | String
@@ -56,7 +55,8 @@ let head_reduction (e: expr) (tbl: (string, expr) Hashtbl.t) : expr = match e wi
   | Len (Str s) -> Num  (String.length s)
   | _ -> assert false
   
-  
+module SS = Set.Make(String)
+
 let rec free_variables (e: expr) : SS.t = match e with
   | Var x -> SS.singleton x 
   | Num _ -> SS.empty
