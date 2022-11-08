@@ -71,15 +71,15 @@ let rec free_variables (e: expr) : SS.t = match e with
   | F_apply (_, e1) -> free_variables e1
 
 
-let rec gen_random_string (length: int) (s: string) = match length with 
+(* let rec gen_random_string (length: int) (s: string) = match length with 
  | 0 -> s
  | _ -> Random.self_init (); 
-    gen_random_string (length-1) (s ^ String.make 1 (Char.chr (97 + (Random.int 26))))
+    gen_random_string (length-1) (s ^ String.make 1 (Char.chr (97 + (Random.int 26)))) *)
 
   
-let rec generate_unique_name (xs: SS.t) : string = 
-  let new_val = gen_random_string 5 ""  in 
-  if (SS.mem new_val xs) then generate_unique_name xs else new_val
+let rec generate_unique_name (xs: SS.t) (x: string): string = 
+  let new_val = x ^ "1" in
+  if (SS.mem new_val xs) then generate_unique_name xs new_val else new_val
 
 let rec rename (e: expr) (x: string) (x': string) : expr = match e with
   | Var y -> if x = y then Var x' else Var y
@@ -96,7 +96,7 @@ let rec rename (e: expr) (x: string) (x': string) : expr = match e with
 
 let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
   | Var y -> if (SS.mem "x" (free_variables e)) then 
-    let new_val = generate_unique_name (free_variables e) in
+    let new_val = generate_unique_name (free_variables e) x in
     substitute (rename e x new_val) v new_val 
     else if x = y then v else e 
   | Num _ -> e
@@ -431,7 +431,7 @@ let () =
     | Error_val s -> Format.eprintf "%s\n" (s);
 
   Hashtbl.iter pp_stack_expr gamma_val; *)
-  let e1 = (Let("x",Let("y", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("z"),Var("x")))) in
+  let e1 = (Let("x",Let("x1", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("y"),Str("EF"))),Cat(Var("z"),Var("x1")))) in
   (* let e1 = Plus(Var("x"),Var("y")) in *)
   let e2 = rename e1 "x" "b" in
   let s = expr_to_string e2 in
@@ -439,7 +439,7 @@ let () =
   let print_set s = 
     SS.iter print_endline s in
   print_set lst;
-  Format.eprintf "%s\n" (s);
+  Format.eprintf "%s\n" (generate_unique_name lst "x");
   (* let e1 = F_def("teste", Int, Int, "x", Let("x", Plus(Num(10),Var("x")),Plus(Var("x"),Var("x")))) in
   let e2 = F_apply("teste", Num(10)) in 
   let res = eval_expr_contextual_dynamics e1 gamma_val functions in 
