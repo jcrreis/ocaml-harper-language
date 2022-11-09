@@ -95,10 +95,10 @@ let rec rename (e: expr) (x: string) (x': string) : expr = match e with
 
 
 let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
-  | Var y -> if (SS.mem "x" (free_variables e)) then 
+  | Var y -> (*if (SS.mem x (free_variables e)) then 
     let new_val = generate_unique_name (free_variables e) x in
     substitute (rename e x new_val) v new_val 
-    else if x = y then v else e 
+    else *) if x = y then v else e 
   | Num _ -> e
   | Str _ -> e
   | Plus (e1, e2) -> Plus(substitute e1 v x, substitute e2 v x)
@@ -108,9 +108,7 @@ let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
   | Len (e1) -> Len(substitute e1 v x)
   | Let (y, e1, e2) -> 
     let e3 = substitute e1 v x in
-    if x = y
-    then Let (y, e3, e2)
-    else Let (y, e3, substitute e2 v x) 
+      Let (y, e3, substitute e2 v x) 
 
 let rec expr_to_string (e: expr) : string = match e with
   | Num n -> Stdlib.string_of_int n
@@ -401,7 +399,7 @@ let test_free_var_and_substitute (e: expr): unit =
   let f_vars = free_variables e in
   Format.eprintf "Free variables: \n";
   print_set f_vars;
-  let e2 = substitute e (Str("ABCD")) "x" in
+  let e2 = substitute e (Num(42)) "x" in
   Format.eprintf "Sub Expression: %s\n" (expr_to_string e2)
 
 let () =
