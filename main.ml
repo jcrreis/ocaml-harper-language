@@ -217,12 +217,15 @@ let rec ts (e: expr) (t_e: t_exp) (functions: (string, (t_exp * t_exp)) Hashtbl.
         let ty_x = ts e1 Infer functions in
         Hashtbl.add gamma x ty_x;
         ts e2 t_e functions
-      | F_def (fname, t_e (*tau1*), t_e1 (*tau2*), x,e1 (*e2*), e) -> 
-          if((*x1: tau1*) true && t_e1 = (ts e1 t_e1 functions) (*e2: tau2*) && true (*f(tau1): tau2*) && true(*e: tau*))
+      | F_def (fname, t_e (*tau1*), t_e1 (*tau2*), x,e1 (*e2*), e) ->
+          Hashtbl.add gamma x t_e;
+          Hashtbl.add gamma fname (Fun(fname, t_e, t_e1)); 
+          if(t_e1 = (ts e1 t_e1 functions) (*f(tau1): tau2*) && true(*e: tau*))
           then (Hashtbl.add functions x (t_e, t_e1); Fun(fname, t_e, t_e1))
           else None
-      | F_apply (fname, e1) -> let (t_e, t_e1) = Hashtbl.find functions fname in
-        if(true (*f(tau1): tau2*) && t_e = (ts e1 t_e functions))
+      | F_apply (fname, e1) -> 
+        let Fun(_,t_e, t_e1) = Hashtbl.find gamma fname in
+        if(t_e = (ts e1 t_e functions))
         then t_e1
         else None
     end
