@@ -216,10 +216,10 @@ let rec ts (e: expr) (t_e: t_exp): t_exp =
         Hashtbl.add gamma x ty_x;
         ts e2 t_e
       | F_def (fname, t_e (*tau1*), t_e1 (*tau2*), x,e1 (*e2*), e) ->
+          Hashtbl.add gamma x t_e;
           if(t_e1 = (ts e1 t_e1))
           then 
             begin 
-              Hashtbl.add gamma x t_e;
               Hashtbl.add gamma fname (Fun(fname, t_e, t_e1)); 
               Fun(fname, t_e, t_e1)
             end
@@ -462,7 +462,7 @@ let () =
     SS.iter print_endline s in
   print_set lst;
   Format.eprintf "%s\n" (generate_unique_name lst "x"); *)
-  let e1 = F_def("teste", Int, Int, "x", Let("x", Plus(Num(10),Var("x")),Plus(Var("x"),Var("x"))),Num(10)) in
+  let e1 = F_def("teste", Int, Int, "x", Plus(Var("x"),Var("x")),Num(10)) in
   Format.eprintf "%s\n" (expr_to_type e1 (Fun("teste", Int, Int)))
   
 
