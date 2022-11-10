@@ -462,8 +462,8 @@ let () =
     SS.iter print_endline s in
   print_set lst;
   Format.eprintf "%s\n" (generate_unique_name lst "x"); *)
-  let e1 = F_def("teste", Int, Int, "x", Plus(Var("x"),Var("x")),Num(10)) in
-  Format.eprintf "%s\n" (expr_to_type e1 (Fun("teste", Int, Int)))
+  let e1 = F_def("teste", String, Int, "x", Len(Var("x")),Num(10)) in
+  Format.eprintf "%s\n" (expr_to_type e1 (Fun("teste", String, Int)))
   
 
   (* let e1 = F_def("teste", Int, Int, "x", Let("x", Plus(Num(10),Var("x")),Plus(Var("x"),Var("x")))) in
