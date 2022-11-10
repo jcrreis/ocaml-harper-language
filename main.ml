@@ -200,7 +200,7 @@ let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64
 
 let gamma_val: (string, expr) Hashtbl.t = Hashtbl.create 64
 
-let rec ts (e: expr) (t_e: t_exp): t_exp =
+let rec ts (gamma: (string, t_exp) Hashtbl.t) (e: expr) (t_e: t_exp): t_exp =
   match t_e with
   | Int | String | Fun(_,_,_) ->
     begin match e with
@@ -217,6 +217,7 @@ let rec ts (e: expr) (t_e: t_exp): t_exp =
         ts e2 t_e
       | F_def (fname, t_e (*tau1*), t_e1 (*tau2*), x,e1 (*e2*), e) ->
           Hashtbl.add gamma x t_e;
+          Hashtbl.add gamma fname (Fun(fname, t_e, t_e1)); 
           if(t_e1 = (ts e1 t_e1))
           then 
             begin 
@@ -455,9 +456,9 @@ let () =
   (* let e2 = rename e1 "x" "b" in *)
   let s = expr_to_string e2 in
   let lst = free_variables e1 in
-  (* test_free_var_and_substitute e1; *)
+  test_free_var_and_substitute e1;
   (* test_free_var_and_substitute e2; *)
-  test_free_var_and_substitute e3;;
+  (* test_free_var_and_substitute e3;; *)
   (* let print_set s = 
     SS.iter print_endline s in
   print_set lst;
