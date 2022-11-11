@@ -60,13 +60,25 @@ let rec eval_bool (e: bexp) (tbl: (string, aexp) Hashtbl.t) : bexp = match e wit
    | e1, e2 -> eval_bool (Conj(eval_bool e1 tbl, e2)) tbl
    end
 
-let eval_statements (e: stm) (tbl: (string, aexp) Hashtbl.t) : (string, aexp) Hashtbl.t = match e with
- | Assign (x, Num n) -> (Hashtbl.add tbl x (Num n); tbl) 
+let rec eval_statements (e: stm) (tbl: (string, aexp) Hashtbl.t) : (string, aexp) Hashtbl.t = match e with
+ | Assign (x, Num n) -> (Hashtbl.add tbl x (Num n); tbl)
+ | Assign (x, e1) -> eval_statements (Assign(x, eval_arit e1 tbl)) tbl  
  | Skip -> tbl
- | Seq (s1, s2) -> assert false
- | If (e1, s1, s2) -> assert false
- | While (e1, s1) -> assert false
- | _ -> assert false
+ | Seq (s1, s2) -> begin
+	let s = eval_statements s1 tbl in
+	let s' = eval_statements s2 s in s'
+   end
+ | If (e1, s1, s2) -> begin
+	let b = eval_bool e1 tbl in
+	begin match b with 
+	  | True -> let s' = eval_statements s1 tbl in s' 
+	  | False -> let s' = eval_statements s2 tbl in s' 
+	end 
+   end
+ | While (e1, s1) -> let b = eval_bool e1 tbl in match b with
+	| True -> let s' = eval_statements s1 tbl in eval_statements (While(e1, s1)) s'  
+	| False -> tbl
+
 
 let head_reduction (e: expr) (tbl: (string, aexp) Hashtbl.t) : expr = match e with
  | Aexp (e1) -> Aexp (eval_arit e1 tbl)
@@ -95,5 +107,5 @@ let () =
 	let tbl: (string, aexp) Hashtbl.t = Hashtbl.create 64 in
 	let res = head_reduction (Bexp(Neg(LessOrEqual(((Plus(Times(Num(3),Num(4)),Num(5)))),Num(100))))) tbl in
 	Format.eprintf "%s\n" (expr_to_string res);
-	let Stm(res, s) = head_reduction (Stm(Assign("x",Num(10)),tbl)) tbl in
+	let Stm(res, s) = head_reduction (Stm(Assign("x",Plus(Num(10),Num(10))),tbl)) tbl in
 	Hashtbl.iter pp_stack_expr tbl;
