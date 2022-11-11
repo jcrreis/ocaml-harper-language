@@ -207,18 +207,18 @@ let rec ts (gamma: (string, t_exp) Hashtbl.t) (e: expr) (t_e: t_exp): t_exp =
       | Var x -> if Hashtbl.find gamma x = t_e then t_e else None
       | Num _ -> if Int = t_e then Int else None
       | Str _ -> if String = t_e then String else None
-      | Plus (e1, e2) -> if (Int = t_e && (ts e1 Int) = Int && (ts e2 Int) = Int) then Int else None
-      | Times (e1, e2) -> if (Int = t_e && (ts e1 Int) = Int && (ts e2 Int) = Int) then Int else None
-      | Cat (e1, e2) -> if (String = t_e && (ts e1 String) = String && (ts e2 String ) = String) then String else None
-      | Len (e1) -> if(Int = t_e && (ts e1 String) = String) then Int else None
+      | Plus (e1, e2) -> if (Int = t_e && (ts gamma e1 Int) = Int && (ts gamma e2 Int) = Int) then Int else None
+      | Times (e1, e2) -> if (Int = t_e && (ts gamma e1 Int) = Int && (ts gamma e2 Int) = Int) then Int else None
+      | Cat (e1, e2) -> if (String = t_e && (ts gamma e1 String) = String && (ts gamma e2 String ) = String) then String else None
+      | Len (e1) -> if(Int = t_e && (ts gamma e1 String) = String) then Int else None
       | Let (x, e1, e2) ->
-        let ty_x = ts e1 Infer in
+        let ty_x = ts gamma e1 Infer in
         Hashtbl.add gamma x ty_x;
-        ts e2 t_e
+        ts gamma e2 t_e
       | F_def (fname, t_e (*tau1*), t_e1 (*tau2*), x,e1 (*e2*), e) ->
           Hashtbl.add gamma x t_e;
           Hashtbl.add gamma fname (Fun(fname, t_e, t_e1)); 
-          if(t_e1 = (ts e1 t_e1))
+          if(t_e1 = (ts gamma e1 t_e1))
           then 
             begin 
               Hashtbl.add gamma fname (Fun(fname, t_e, t_e1)); 
@@ -228,7 +228,7 @@ let rec ts (gamma: (string, t_exp) Hashtbl.t) (e: expr) (t_e: t_exp): t_exp =
             None
       | F_apply (fname, e1) -> 
         let Fun(_,t_e, t_e1) = Hashtbl.find gamma fname in
-        if(t_e = (ts e1 t_e))
+        if(t_e = (ts gamma e1 t_e))
         then 
           t_e1
         else 
@@ -241,29 +241,29 @@ let rec ts (gamma: (string, t_exp) Hashtbl.t) (e: expr) (t_e: t_exp): t_exp =
       | Num n -> Int
       | Str s -> String
       | Plus (e1, e2) ->
-        begin match ts e1 Int, ts e2 Int with
+        begin match ts gamma e1 Int, ts gamma e2 Int with
           | Int, Int -> Int
           | _ -> None
         end
       | Times (e1, e2) ->
-        begin match ts e1 Int, ts e2 Int with
+        begin match ts gamma e1 Int, ts gamma e2 Int with
           | Int, Int -> Int
           | _ -> None
         end
       | Cat (e1, e2) ->
-        begin match ts e1 String, ts e2 String with
+        begin match ts gamma e1 String, ts gamma e2 String with
           | String, String -> String
           | _ -> None
         end
       | Len (e1) ->
-        begin match ts e1 String with
+        begin match ts gamma e1 String with
           | String -> Int
           | _ -> None
         end
       | Let (x, e1, e2) -> 
-          let ty_x = ts e1 Infer in
+          let ty_x = ts gamma e1 Infer in
           Hashtbl.add gamma x ty_x;
-          ts e2 t_e
+          ts gamma e2 t_e
       | F_def (fname, t_e, t_e1, x, e1, e) -> assert false
       | F_apply (fname, e1) -> assert false 
     end
@@ -372,7 +372,7 @@ let type_exp_to_string (t_e: t_exp) : string = match t_e with
   | None -> "None"
   | Infer -> "Infer"
 
-let expr_to_type (e: expr) (t_e: t_exp): string = match ts e t_e with
+let expr_to_type (e: expr) (t_e: t_exp) (gamma: (string, t_exp) Hashtbl.t): string = match ts gamma e t_e with
   | Int -> "Int"
   | String -> "String"
   | None -> "None"
@@ -382,16 +382,16 @@ let expr_to_type (e: expr) (t_e: t_exp): string = match ts e t_e with
 
 let expr_to_value_result (e: expr) : string =  expr_to_string e ^ " = " ^ expr_to_value e 
 
-let expr_to_type_result (e: expr) (t_e: t_exp): string = 
-    expr_to_string e ^ " : " ^ type_exp_to_string (t_e) ^ " = " ^  expr_to_type e t_e
+let expr_to_type_result (e: expr) (t_e: t_exp) (gamma: (string, t_exp) Hashtbl.t): string = 
+    expr_to_string e ^ " : " ^ type_exp_to_string (t_e) ^ " = " ^  expr_to_type e t_e gamma 
 
-let rec print_list lst t_exp =
+let rec print_list lst t_exp gamma =
   match lst with
   | [] -> ()
   | x :: xs -> 
-      Format.eprintf "%s\n" (expr_to_type_result x t_exp);
+      Format.eprintf "%s\n" (expr_to_type_result gamma x t_exp);
       Format.eprintf "%s\n" (expr_to_value_result x);
-      print_list xs t_exp
+      print_list xs t_exp gamma
     
 let print_set (s: SS.t): unit = SS.iter print_endline s;;
 
@@ -425,6 +425,7 @@ let () =
   let lst = [e2] in
   
   print_list lst String; *)
+  let gamma: (string, t_exp) Hashtbl.t = Hashtbl.create 64 in
   let gamma_val: (string, expr) Hashtbl.t = Hashtbl.create 64 in
   let functions: (string, (expr * string)) Hashtbl.t = Hashtbl.create 64 in
   (* let e1 = Times(Plus(Num(1),Num(2)),Num(3)) in *)
