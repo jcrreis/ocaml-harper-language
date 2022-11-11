@@ -23,7 +23,7 @@ type stm =
 type expr =
  | Aexp of aexp
  | Bexp of bexp
- | Stm of stm
+ | Stm of stm * (string, aexp) Hashtbl.t
 
 let rec eval_arit (e: aexp) (tbl: (string, aexp) Hashtbl.t) : aexp = match e with
 	| Num (n) -> Num (n)
@@ -56,13 +56,13 @@ let rec eval_bool (e: bexp) (tbl: (string, aexp) Hashtbl.t) : bexp = match e wit
    | True, True -> True
    | False, _ -> False
    | _, False -> False
-			| True, e2 -> eval_bool (Conj(True, eval_bool e2 tbl)) tbl
-			| e1, e2 -> eval_bool (Conj(eval_bool e1 tbl, e2)) tbl
+   | True, e2 -> eval_bool (Conj(True, eval_bool e2 tbl)) tbl
+   | e1, e2 -> eval_bool (Conj(eval_bool e1 tbl, e2)) tbl
    end
 
-let eval_statements (e: stm) (tbl: (string, aexp) Hashtbl.t) : stm = match e with
-	| Assign (x, Num n) -> (Hashtbl.add tbl x (Num n); Skip) 
- | Skip -> Skip
+let eval_statements (e: stm) (tbl: (string, aexp) Hashtbl.t) : (string, aexp) Hashtbl.t = match e with
+ | Assign (x, Num n) -> (Hashtbl.add tbl x (Num n); tbl) 
+ | Skip -> tbl
  | Seq (s1, s2) -> assert false
  | If (e1, s1, s2) -> assert false
  | While (e1, s1) -> assert false
@@ -71,22 +71,29 @@ let eval_statements (e: stm) (tbl: (string, aexp) Hashtbl.t) : stm = match e wit
 let head_reduction (e: expr) (tbl: (string, aexp) Hashtbl.t) : expr = match e with
  | Aexp (e1) -> Aexp (eval_arit e1 tbl)
  | Bexp (e1) -> Bexp (eval_bool e1 tbl)
- | Stm (e1) -> Stm (eval_statements e1 tbl)
+ | Stm (e1, s) -> Stm (e1, (eval_statements e1 tbl))
 
 
 let expr_to_string (e: expr) : string = match e with
   | Aexp (e1) -> begin match e1 with
-		| Num (n) -> Stdlib.string_of_int n
-		| _ -> assert false
-		end
+	| Num (n) -> Stdlib.string_of_int n
+	| _ -> assert false
+	end
  | Bexp (e1) -> begin match e1 with
-		| True -> "True"
-		| False -> "False"
-		| _ -> assert false
-		end
- | Stm (e1) -> assert false
+	| True -> "True"
+	| False -> "False"
+	| _ -> assert false
+	end
+ | Stm (e1, s) -> assert false
+
+let pp_stack_expr (s:string) (v:aexp) =
+  Format.eprintf "%s ---> " s;
+  Format.eprintf "%s; " (expr_to_string (Aexp(v)));
+  Format.eprintf "@."
 
 let () = 
 	let tbl: (string, aexp) Hashtbl.t = Hashtbl.create 64 in
 	let res = head_reduction (Bexp(Neg(LessOrEqual(((Plus(Times(Num(3),Num(4)),Num(5)))),Num(100))))) tbl in
 	Format.eprintf "%s\n" (expr_to_string res);
+	let Stm(res, s) = head_reduction (Stm(Assign("x",Num(10)),tbl)) tbl in
+	Hashtbl.iter pp_stack_expr tbl;
