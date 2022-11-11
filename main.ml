@@ -389,7 +389,7 @@ let rec print_list lst t_exp gamma =
   match lst with
   | [] -> ()
   | x :: xs -> 
-      Format.eprintf "%s\n" (expr_to_type_result gamma x t_exp);
+      Format.eprintf "%s\n" (expr_to_type_result x t_exp gamma);
       Format.eprintf "%s\n" (expr_to_value_result x);
       print_list xs t_exp gamma
     
@@ -465,7 +465,7 @@ let () =
   print_set lst;
   Format.eprintf "%s\n" (generate_unique_name lst "x"); *)
   let e1 = F_def("teste", String, Int, "x", Len(Var("x")),Num(10)) in
-  Format.eprintf "%s\n" (expr_to_type e1 (Fun("teste", String, Int)))
+  Format.eprintf "%s\n" (expr_to_type e1 (Fun("teste", String, Int)) gamma)
   
 
   (* let e1 = F_def("teste", Int, Int, "x", Let("x", Plus(Num(10),Var("x")),Plus(Var("x"),Var("x")))) in
