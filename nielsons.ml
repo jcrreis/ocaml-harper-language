@@ -60,24 +60,24 @@ let rec eval_bool (e: bexp) (tbl: (string, aexp) Hashtbl.t) : bexp = match e wit
    | e1, e2 -> eval_bool (Conj(eval_bool e1 tbl, e2)) tbl
    end
 
-let rec eval_statements (e: stm) (tbl: (string, aexp) Hashtbl.t) : (string, aexp) Hashtbl.t = match e with
- | Assign (x, Num n) -> (Hashtbl.add tbl x (Num n); tbl)
- | Assign (x, e1) -> eval_statements (Assign(x, eval_arit e1 tbl)) tbl  
- | Skip -> tbl
+let rec eval_statements (e: stm) (s: (string, aexp) Hashtbl.t) : (string, aexp) Hashtbl.t = match e with
+ | Assign (x, Num n) -> (Hashtbl.add s x (Num n); s)
+ | Assign (x, e1) -> eval_statements (Assign(x, eval_arit e1 s)) s  
+ | Skip -> s
  | Seq (s1, s2) -> begin
-	let s = eval_statements s1 tbl in
-	let s' = eval_statements s2 s in s'
+	let s' = eval_statements s1 s in
+	let s'' = eval_statements s2 s' in s''
    end
  | If (e1, s1, s2) -> begin
-	let b = eval_bool e1 tbl in
+	let b = eval_bool e1 s in
 	begin match b with 
-	  | True -> let s' = eval_statements s1 tbl in s' 
-	  | False -> let s' = eval_statements s2 tbl in s' 
+	  | True -> let s' = eval_statements s1 s in s' 
+	  | False -> let s' = eval_statements s2 s in s' 
 	end 
    end
- | While (e1, s1) -> let b = eval_bool e1 tbl in match b with
-	| True -> let s' = eval_statements s1 tbl in eval_statements (While(e1, s1)) s'  
-	| False -> tbl
+ | While (e1, s1) -> let b = eval_bool e1 s in match b with
+	| True -> let s' = eval_statements s1 s in eval_statements (While(e1, s1)) s'  
+	| False -> s
 
 
 let head_reduction (e: expr) (tbl: (string, aexp) Hashtbl.t) : expr = match e with
