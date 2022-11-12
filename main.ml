@@ -395,13 +395,16 @@ let rec print_list lst t_exp gamma =
     
 let print_set (s: SS.t): unit = SS.iter print_endline s;;
 
-let test_free_var_and_substitute (e: expr): unit =
+let test_free_var_and_substitute (e: expr) (tbl: (string, expr) Hashtbl.t) (functions: (string, (expr * string)) Hashtbl.t): unit =
   Format.eprintf "Original Expression: %s\n" (expr_to_string e);
   let f_vars = free_variables e in
   Format.eprintf "Free variables: \n";
   print_set f_vars;
-  let e2 = substitute e (Num(42)) "x" in
-  Format.eprintf "Sub Expression: %s\n" (expr_to_string e2)
+  let e2 = eval_expr_contextual_dynamics e tbl functions in
+  match e2 with
+    | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
+    | Str_val s -> Format.eprintf "%s\n" (s);
+    | Error_val s -> Format.eprintf "%s\n" (s)
 
 let () =
   let e1 = (Let("x",Let("y",Plus(Num(3),Num(1)),Plus(Var("y"),Var("y"))),Plus(Var("x"),Var("x")))) in
@@ -450,23 +453,48 @@ let () =
     | Error_val s -> Format.eprintf "%s\n" (s);
 
   Hashtbl.iter pp_stack_expr gamma_val; *)
-  let e1 = (Let("x",Let("x", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("x"),Str("EF"))),Cat(Var("z"),Var("x1")))) in
-  let e2 = (Let("x",Num(42),Plus(Var("x"),Var("y")))) in
+  let e1 = (Let("x",Let("x", Cat(Cat(Str("a"),Str("b")),Cat(Str("c"),Str("d"))),Cat(Var("x"),Str("EF"))),Cat(Var("x"),Var("x")))) in
+  let e2 = (Let("x",Num(42),Plus(Var("x"),Var("x")))) in
   let e3 = (Let("x",Var("y"),Let("y",Plus(Var("x"),Var("y")),Var("y")))) in
   (* let e1 = Plus(Var("x"),Var("y")) in *)
   (* let e2 = rename e1 "x" "b" in *)
   let s = expr_to_string e2 in
   let lst = free_variables e1 in
-  test_free_var_and_substitute e1;
+  test_free_var_and_substitute e1 gamma_val functions;
   (* test_free_var_and_substitute e2; *)
   (* test_free_var_and_substitute e3;; *)
   (* let print_set s = 
     SS.iter print_endline s in
   print_set lst;
   Format.eprintf "%s\n" (generate_unique_name lst "x"); *)
-  let e1 = F_def("teste", String, Int, "x", Len(Var("x")),Num(10)) in
-  Format.eprintf "%s\n" (expr_to_type e1 (Fun("teste", String, Int)) gamma)
-  
+  let e1 = F_def("teste1", String, Int, "x", Len(Var("x")),Num(10)) in
+  Format.eprintf "%s\n" (expr_to_type e1 (Fun("teste", String, Int)) gamma);
+  let e2 = F_def("teste2", String, String, "x", Cat(Var("x"),Var("x")),Num(10)) in
+  Format.eprintf "%s\n" (expr_to_type e2 (Fun("teste", String, String)) gamma);
+  let e3 = F_def("teste3", String, String, "x", Let("y", Var("O valor de x é: "), Cat(Var("y"),Var("x"))),Num(10)) in
+  Format.eprintf "%s\n" (expr_to_type e2 (Fun("teste", String, String)) gamma);
+  eval_expr_contextual_dynamics e1 gamma_val functions;
+  eval_expr_contextual_dynamics e2 gamma_val functions;
+  eval_expr_contextual_dynamics e3 gamma_val functions;
+  (* Let("y", Cat(Str("AB"),Str("CD")),Cat(Var("y"),Var("y"))) *)
+  let res1 = F_apply("teste1", Cat(Str("AB"),Str("CD"))) in
+  let e1' = eval_expr_contextual_dynamics res1 gamma_val functions in
+  let res2 = F_apply("teste2", Plus(Plus(Num(10),Num(10)),Num(20))) in
+  let e2' = eval_expr_contextual_dynamics res1 gamma_val functions in
+  let res3 = F_apply("teste3", Plus(Plus(Num(10),Num(10)),Num(20))) in
+  let e3' = eval_expr_contextual_dynamics res1 gamma_val functions in
+  match e1' with
+    | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
+    | Str_val s -> Format.eprintf "%s\n" (s);
+    | Error_val s -> Format.eprintf "%s\n" (s)
+  (* match e2' with
+    | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
+    | Str_val s -> Format.eprintf "%s\n" (s);
+    | Error_val s -> Format.eprintf "%s\n" (s);
+  match e3' with
+    | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
+    | Str_val s -> Format.eprintf "%s\n" (s);
+    | Error_val s -> Format.eprintf "%s\n" (s) *)
 
   (* let e1 = F_def("teste", Int, Int, "x", Let("x", Plus(Num(10),Var("x")),Plus(Var("x"),Var("x")))) in
   let e2 = F_apply("teste", Num(10)) in 

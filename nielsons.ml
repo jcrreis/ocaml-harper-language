@@ -109,3 +109,8 @@ let () =
 	Format.eprintf "%s\n" (expr_to_string res);
 	let Stm(res, s) = head_reduction (Stm(Assign("x",Plus(Num(10),Num(10))),tbl)) tbl in
 	Hashtbl.iter pp_stack_expr tbl;
+
+	let Stm(e1, s) = Stm(Seq(Assign("x", Num(0)), While(LessOrEqual(Var("x"), Plus(Num(5),Num(5))), Assign("x", Plus(Var("x"), Num(1))))),tbl) in
+	let state = eval_statements e1 tbl in
+	Format.eprintf "=========================\n";
+	Hashtbl.iter pp_stack_expr state
