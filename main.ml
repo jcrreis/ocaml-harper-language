@@ -95,10 +95,10 @@ let rec rename (e: expr) (x: string) (x': string) : expr = match e with
 
 
 let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
-  | Var y -> if (SS.mem x (free_variables e)) then 
+  | Var y -> (*if (SS.mem x (free_variables e)) then 
     let new_val = generate_unique_name (free_variables e) x in
     substitute (rename e x new_val) v new_val 
-    else if x = y then v else e 
+    else *)if x = y then v else e 
   | Num _ -> e
   | Str _ -> e
   | Plus (e1, e2) -> Plus(substitute e1 v x, substitute e2 v x)
@@ -476,20 +476,21 @@ let () =
   eval_expr_contextual_dynamics e1 gamma_val functions;
   eval_expr_contextual_dynamics e2 gamma_val functions;
   eval_expr_contextual_dynamics e3 gamma_val functions;
-  Format.eprintf "AQUI";
   (* Let("y", Cat(Str("AB"),Str("CD")),Cat(Var("y"),Var("y"))) *)
   (* Cat(Str("AB"),Str("CD")) *)
   let res1 = F_apply("teste1",  Let("y", Cat(Str("AB"),Str("CD")),Cat(Var("y"),Var("y")))) in
+  let res2 = Let("x", Let("x", Str("a"), Cat(Var("x"),Var("x"))), Var("x")) in
+  (* Format.eprintf "%s" (expr_to_string (rename res2 "x" "x'")); *)
   let e1' = eval_expr_contextual_dynamics res1 gamma_val functions in
   let res2 = F_apply("teste2", Let("y", Cat(Str("AB"),Str("CD")),Cat(Var("y"),Var("y")))) in
   let e2' = eval_expr_contextual_dynamics res2 gamma_val functions in
   let res3 = F_apply("teste3", Let("y", Cat(Str("AB"),Str("CD")),Cat(Var("y"),Var("y")))) in
-  let e3' = eval_expr_contextual_dynamics res3 gamma_val functions in
+  let e3' = eval_expr_contextual_dynamics res3 gamma_val functions in 
   (* match e1' with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
     | Str_val s -> Format.eprintf "%s\n" (s);
-    | Error_val s -> Format.eprintf "%s\n" (s); *)
-  (* match e2' with
+    | Error_val s -> Format.eprintf "%s\n" (s);
+  match e2' with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
     | Str_val s -> Format.eprintf "%s\n" (s);
     | Error_val s -> Format.eprintf "%s\n" (s); *)
