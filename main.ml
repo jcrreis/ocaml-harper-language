@@ -159,7 +159,9 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) (functions: (string,
      | _ -> (r, E_rightlet (x, Str s1, c))
     end
   | Let (x, e1, e2) -> let r, c = decompose e1 tbl functions in (r, E_leftlet(x, c, e2))
-  | F_def (fname, _, _, x, e1, e) -> Hashtbl.add functions fname (e1, x); (e, Hole)
+  | F_def (fname, _, _, x, e1, e) -> 
+    Hashtbl.add functions fname (e1, x); 
+    decompose e tbl functions
   | F_apply (fname, e1) -> let (e2, x) = Hashtbl.find functions fname in
     let e1_d, _ = decompose e1 tbl functions in 
     let e_sub = substitute e2 (e1_d) x in
@@ -472,11 +474,12 @@ let () =
   Format.eprintf "%s\n" (expr_to_type e1 (Fun("teste", String, Int)) gamma);
   let e2 = F_def("teste2", String, String, "x", Cat(Var("x"),Var("x")),Plus(Num(10),Num(10))) in
   Format.eprintf "%s\n" (expr_to_type e2 (Fun("teste", String, String)) gamma);
-  let e3 = F_def("teste3", String, String, "x", Let("y", Str("O valor de x é: "), Cat(Var("y"),Var("x"))),Plus(Num(10),Num(10))) in
+  let res3 = F_apply("teste3", Let("y", Cat(Str("AB"),Str("CD")),Cat(Var("y"),Var("y")))) in
+  let e3 = F_def("teste3", String, String, "x", Let("y", Str("O valor de x é: "), Cat(Var("y"),Var("x"))), res3) in
   Format.eprintf "%s\n" (expr_to_type e2 (Fun("teste", String, String)) gamma);
   eval_expr_contextual_dynamics e1 gamma_val functions;
   eval_expr_contextual_dynamics e2 gamma_val functions;
-  eval_expr_contextual_dynamics e3 gamma_val functions;
+  let e4' = eval_expr_contextual_dynamics e3 gamma_val functions in
   (* Let("y", Cat(Str("AB"),Str("CD")),Cat(Var("y"),Var("y"))) *)
   (* Cat(Str("AB"),Str("CD")) *)
   let res1 = F_apply("teste1",  Let("y", Cat(Str("AB"),Str("CD")),Cat(Var("y"),Var("y")))) in
@@ -485,7 +488,7 @@ let () =
   let e1' = eval_expr_contextual_dynamics res1 gamma_val functions in
   let res2 = F_apply("teste2", Let("y", Cat(Str("AB"),Str("CD")),Cat(Var("y"),Var("y")))) in
   let e2' = eval_expr_contextual_dynamics res2 gamma_val functions in
-  let res3 = F_apply("teste3", Let("y", Cat(Str("AB"),Str("CD")),Cat(Var("y"),Var("y")))) in
+ 
   let e3' = eval_expr_contextual_dynamics res3 gamma_val functions in
   (* match e1' with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
@@ -495,7 +498,7 @@ let () =
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
     | Str_val s -> Format.eprintf "%s\n" (s);
     | Error_val s -> Format.eprintf "%s\n" (s); *)
-  match e3' with
+  match e4' with
     | Num_val i -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
     | Str_val s -> Format.eprintf "%s\n" (s);
     | Error_val s -> Format.eprintf "%s\n" (s)
