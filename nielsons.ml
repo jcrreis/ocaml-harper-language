@@ -132,9 +132,22 @@ let rec eval_stmt_func e store = match e with
       let store' = eval_stmt_func s1 store in
       eval_stmt_func s2 store'
     end
-  | If _ -> assert false (* TODO *)
-  | While _ -> assert false (* TODO *)
-
+  | If (e1, s1, s2) -> begin
+    let b = eval_bool_func e1 store in
+    begin match b with
+    | True -> eval_stmt_func s1 store 
+    | False -> eval_stmt_func s2 store
+    | _ -> assert false 
+    end
+    end
+  | While (e1, s1) -> begin
+    let b = eval_bool_func e1 store in
+    begin match b with
+    | True -> eval_stmt_func s1 store
+    | False -> store
+    | _ -> assert false 
+    end
+    end
 
 let head_reduction (e: expr) (tbl: (string, aexp) Hashtbl.t) : expr = match e with
   | Aexp (e1) -> Aexp (eval_arit e1 tbl)
