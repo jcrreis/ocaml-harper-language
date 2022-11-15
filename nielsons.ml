@@ -155,6 +155,11 @@ let head_reduction (e: expr) (tbl: (string, aexp) Hashtbl.t) : expr = match e wi
   | Stm (e1, s) -> Stm (e1, (eval_statements e1 tbl))
 
 
+let head_reduction_func e store = match e with
+  | Aexp (e1) -> Aexp (eval_arit_func e1 store)
+  | Bexp (e1) -> Bexp (eval_bool_func e1 store)
+  | Stm (e1, s) -> Stm (e1, (eval_stmt_func e1 store))
+  
 let expr_to_string (e: expr) : string = match e with
   | Aexp (e1) -> begin match e1 with
       | Num (n) -> Stdlib.string_of_int n
