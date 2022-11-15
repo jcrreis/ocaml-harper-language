@@ -23,7 +23,7 @@ type stm =
 type expr =
   | Aexp of aexp
   | Bexp of bexp
-  | Stm of stm * (string, aexp) Hashtbl.t
+  | Stm of stm * unit
 
 let rec eval_arit (e: aexp) (tbl: (string, aexp) Hashtbl.t) : aexp = match e with
   | Num (n) -> Num (n)
@@ -101,6 +101,28 @@ let rec eval_arit_func e store = match e with
   | Minus (e1, e2) ->
       eval_arit_func (Minus(eval_arit_func e1 store, e2)) store
 
+let rec eval_bool_func e store = match e with
+  | True -> True
+  | False -> False
+  | Neg (e1) -> begin match e1 with
+      | True -> False
+      | False -> True
+      | _ -> eval_bool_func (Neg(eval_bool_func e1 store)) store
+    end
+  | Equals (Num n1, Num n2) -> if n1 == n2 then True else False
+  | Equals (Num n1, e2) -> eval_bool_func (Equals(Num n1, eval_arit_func e2 store)) store
+  | Equals (e1, e2) -> eval_bool_func (Equals(eval_arit_func e1 store, e2)) store
+  | LessOrEqual (Num n1, Num n2) -> if n1 <= n2 then True else False
+  | LessOrEqual (Num n1, e2) -> eval_bool_func (LessOrEqual(Num n1, eval_arit_func e2 store)) store
+  | LessOrEqual (e1, e2) -> eval_bool_func (LessOrEqual(eval_arit_func e1 store, e2)) store
+  | Conj (e1, e2) -> begin match e1, e2 with
+      | True, True -> True
+      | False, _ -> False
+      | _, False -> False
+      | True, e2 -> eval_bool_func (Conj(True, eval_bool_func e2 store)) store
+      | e1, e2 -> eval_bool_func (Conj(eval_bool_func e1 store, e2)) store
+    end
+
 let rec eval_stmt_func e store = match e with
   | Assign (x, e1) ->
     let n = eval_arit_func e1 store in
@@ -141,11 +163,10 @@ let () =
   let tbl: (string, aexp) Hashtbl.t = Hashtbl.create 64 in
   let res = head_reduction (Bexp(Neg(LessOrEqual(((Plus(Times(Num(3),Num(4)),Num(5)))),Num(100))))) tbl in
   Format.eprintf "%s\n" (expr_to_string res);
-  let Stm(res, s) = head_reduction (Stm(Assign("x",Plus(Num(10),Num(10))),tbl)) tbl in
+  let Stm(res, s) = head_reduction (Stm(Assign("x",Plus(Num(10),Num(10))),())) tbl in
   Hashtbl.iter pp_stack_expr tbl;
 
   (*x = 0 (while x <= (5+5) ) { x +=1 }*)
-  let Stm(e1, s) = Stm(Seq(Assign("x", Num(0)), While(LessOrEqual(Var("x"), Plus(Num(5),Num(5))), Assign("x", Plus(Var("x"), Num(1))))),tbl) in
-  let state = eval_statements e1 tbl in
+  let Stm(e1, s) = Stm(Seq(Assign("x", Num(0)), While(LessOrEqual(Var("x"), Plus(Num(5),Num(5))), Assign("x", Plus(Var("x"), Num(1))))),()) in
   Format.eprintf "=========================\n";
-  Hashtbl.iter pp_stack_expr state
+  Hashtbl.iter pp_stack_expr tbl
