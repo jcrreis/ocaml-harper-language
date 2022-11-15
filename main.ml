@@ -95,10 +95,10 @@ let rec rename (e: expr) (x: string) (x': string) : expr = match e with
 
 
 let rec substitute (e: expr) (v: expr) (x: string) : expr = match e with
-  | Var y -> if (SS.mem x (free_variables e)) then
+  | Var y -> (*if (SS.mem x (free_variables e)) then
     let new_val = generate_unique_name (free_variables e) x in
     substitute (rename e x new_val) v new_val
-    else if x = y then v else e
+    else *)if x = y then v else e
   | Num _ -> e
   | Str _ -> e
   | Plus (e1, e2) -> Plus(substitute e1 v x, substitute e2 v x)
@@ -161,7 +161,8 @@ let rec decompose (e: expr) (tbl: (string, expr) Hashtbl.t) (functions: (string,
   | Let (x, e1, e2) -> let r, c = decompose e1 tbl functions in (r, E_leftlet(x, c, e2))
   | F_def (fname, _, _, x, e1, e) -> Hashtbl.add functions fname (e1, x); (e, Hole)
   | F_apply (fname, e1) -> let (e2, x) = Hashtbl.find functions fname in
-    let e_sub = substitute e2 e1 x in
+    let e1_d, _ = decompose e1 tbl functions in 
+    let e_sub = substitute e2 (e1_d) x in
     decompose e_sub tbl functions
 
 
