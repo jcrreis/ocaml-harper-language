@@ -32,6 +32,7 @@ type expr =
   | Revert 
   | If of expr * expr * expr 
   | Seq of expr * expr
+  | Return of expr
 
 
 
