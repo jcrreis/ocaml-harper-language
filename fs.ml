@@ -20,7 +20,7 @@ type values =
 type expr =
   | Var of string
   | Val of values
-  | This 
+  | This of string (* * string (? contracto a que se refer o this) *)
   | MsgSender 
   | MsgValue 
   | Balance of expr
