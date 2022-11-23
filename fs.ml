@@ -27,7 +27,12 @@ type expr =
   | Address of expr 
   | Assign of string * expr
   | Transfer of expr * expr
+  | Let of string * expr * expr
+  | New of string * expr (* list of expr ? parameters *)
   | Revert 
   | If of expr * expr * expr 
   | Seq of expr * expr
+
+
+
 
