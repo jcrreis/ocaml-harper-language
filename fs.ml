@@ -53,6 +53,15 @@ and bool_ops =
   | Inequals of expr * expr
   
 
+let rec eval_expr (e: arit_ops) : expr = match e with
+  | Plus (e1, e2) -> begin match e1, e2 with
+    | Val(VUInt(n1)), Val(VUInt(n2)) -> Val(VUInt(n1 + n2))
+    | Val(VUInt(n1)), e2 -> eval_expr (Plus(Val(VUInt(n1)), eval_expr e2))
+    | e1, e2 -> eval_expr Plus(eval_expr e1, e2)
+    end  
+  | _ -> assert false
+
+
 
 
 
