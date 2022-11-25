@@ -52,8 +52,20 @@ and bool_ops =
   | LessOrEquals of expr * expr
   | Inequals of expr * expr
   
+type fun_def =
+  | Name of string
+  | RetType of t_exp
+  | Args of t_exp * string (* list *)
+  | Body of expr 
 
-let rec eval_expr (e: arit_ops) : expr = match e with
+type contract_def = 
+  | Name of string 
+  | State of t_exp * string (* list *)
+  | Constructor of t_exp * string (* list *) * expr 
+  | Functions of fun_def (*list*)
+
+
+let rec eval_expr (e: expr) : expr = match e with
   | Plus (e1, e2) -> begin match e1, e2 with
     | Val(VUInt(n1)), Val(VUInt(n2)) -> Val(VUInt(n1 + n2))
     | Val(VUInt(n1)), e2 -> eval_expr (Plus(Val(VUInt(n1)), eval_expr e2))
