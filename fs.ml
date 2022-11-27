@@ -76,6 +76,7 @@ type contract_def =
 
 let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64
 
+let blockchain: ((values,values), (string, values(*state vars*),values)) Hashtbl.t = Hashtbl.create 64
 
 let rec decompose_arit_expr (e: arit_ops) : arit_ops = match e with
   (* | Plus (e1, e2) -> begin match e1, e2 with
