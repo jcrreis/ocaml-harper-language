@@ -32,13 +32,13 @@ type expr =
   | New of string * expr (* list of expr ? parameters *)
   | Cons of string * expr 
   | Seq of expr * expr
-  | Let of (*t_exp * ?*) string * expr * expr (* EM SOLIDITY NÃO EXISTE *)
+  | Let of t_exp *  string * expr * expr (* EM SOLIDITY NÃO EXISTE *)
   | Assign of string * expr
   | StateAssign of expr * string * expr
   | MapRead of expr * expr 
   | MapWrite of expr * expr * expr
-  | Call of expr * string * expr * expr (*List?*) 
-  | CallVariant of expr * string * expr * expr * expr (*list?*) 
+  | Call of expr * string * expr * expr list
+  | CallVariant of expr * string * expr * expr * expr list
   | Revert
   | If of expr * expr * expr 
   | Return of expr
@@ -62,21 +62,24 @@ and bool_ops =
   | LessOrEquals of bool_ops * bool_ops
   | Inequals of bool_ops * bool_ops
   
-type fun_def =
-  | Name of string
-  | RetType of t_exp
-  | Args of t_exp * string (* list *)
-  | Body of expr 
+type fun_def = {
+  name : string;
+  rettype : t_exp;
+  args : (t_exp * string) list;
+  body : expr
 
-type contract_def = 
-  | Name of string 
-  | State of t_exp * string (* list *)
-  | Constructor of t_exp * string (* list *) * expr 
-  | Functions of fun_def (*list*)
+}
+
+type contract_def = {
+  name : string;
+  state : (t_exp * string) list;
+  constructor : (t_exp * string) list * expr;
+  functions : fun_def list;
+}
 
 let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64
 
-(* let blockchain: ((values,values), (string, values(*state vars*),values)) Hashtbl.t = Hashtbl.create 64 *)
+let blockchain: ((values * values), (string * values(*state vars*) * values)) Hashtbl.t = Hashtbl.create 64
 
 let rec eval_arit_expr (e: arit_ops) : arit_ops = match e with
   | Plus (e1, e2) -> begin match e1, e2 with
@@ -115,6 +118,13 @@ let rec eval_expr (e: expr) : expr = match e with
 	| Var(x) -> Var(x)
 	| _ -> assert false
 
+
+let bank_contract unit : contract_def = {
+  name = "Bank";
+  state = [];
+  constructor = ([], Return (Val(VUnit)));
+  functions = [];
+}
 
 
 
