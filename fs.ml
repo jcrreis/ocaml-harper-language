@@ -44,23 +44,23 @@ type expr =
   | Return of expr
 and arit_ops = 
   | Num of int
-  | Plus of expr * expr 
-  | Div of expr * expr 
-  | Times of expr * expr
-  | Minus of expr * expr 
-  | Exp of expr * expr 
-  | Mod of expr * expr 
+  | Plus of arit_ops * arit_ops 
+  | Div of arit_ops * arit_ops 
+  | Times of arit_ops * arit_ops
+  | Minus of arit_ops * arit_ops 
+  | Exp of arit_ops * arit_ops 
+  | Mod of arit_ops * arit_ops 
 and bool_ops =
   | Bool of b_val
   | Neg of b_val
   | Conj of b_val * b_val
   | Disj of b_val * b_val
-  | Equals of expr * expr 
-  | Greater of expr * expr 
-  | GreaterOrEquals of expr * expr
-  | Lesser of expr * expr
-  | LessOrEquals of expr * expr
-  | Inequals of expr * expr
+  | Equals of bool_ops * bool_ops 
+  | Greater of bool_ops * bool_ops 
+  | GreaterOrEquals of bool_ops * bool_ops
+  | Lesser of bool_ops * bool_ops
+  | LessOrEquals of bool_ops * bool_ops
+  | Inequals of bool_ops * bool_ops
   
 type fun_def =
   | Name of string
@@ -76,17 +76,17 @@ type contract_def =
 
 let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64
 
-let blockchain: ((values,values), (string, values(*state vars*),values)) Hashtbl.t = Hashtbl.create 64
+(* let blockchain: ((values,values), (string, values(*state vars*),values)) Hashtbl.t = Hashtbl.create 64 *)
 
-let rec decompose_arit_expr (e: arit_ops) : arit_ops = match e with
-  (* | Plus (e1, e2) -> begin match e1, e2 with
+let rec eval_arit_expr (e: arit_ops) : arit_ops = match e with
+  | Plus (e1, e2) -> begin match e1, e2 with
     | Num n1, Num n2 -> Num (n1 + n2)
-    | Num n1, e2 -> eval_expr (Plus(Num(n1), eval_expr e2))
-    | e1, e2 -> eval_expr Plus(eval_expr e1, e2)
-    end   *)
+    | Num n1, e2 -> eval_arit_expr (Plus(Num(n1), eval_arit_expr e2))
+    | e1, e2 -> eval_arit_expr (Plus(eval_arit_expr e1, e2))
+    end  
   | _ -> assert false
 
-let rec decompose_bool_expr (e: bool_ops) : bool_ops = match e with
+let rec eval_bool_expr (e: bool_ops) : bool_ops = match e with
   | Neg (b1) -> begin match b1 with 
     | False -> Bool(True)
     | True -> Bool(False)
