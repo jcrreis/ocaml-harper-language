@@ -126,6 +126,14 @@ let bank_contract unit : contract_def = {
   functions = [];
 }
 
+let blood_bank_contract unit : contract_def = {
+  name = "BloodBank";
+  state = [];
+  constructor = ([], Return (Val(VUnit)));
+  functions = [];
+}
+
+
 
 
 
