@@ -103,6 +103,14 @@ let rec eval_bool_expr (e: bool_ops) : bool_ops = match e with
     end
   | _ -> assert false
 
+let from_arit_ops_to_expr (e: arit_ops) : expr = match e with 
+  | Num (i) -> Val(VUInt(i))
+  | _ -> assert false 
+
+let from_bool_ops_to_expr (e: bool_ops) : expr = match e with
+  | Bool (bval) -> Val(VBool(bval))
+  | _ -> assert false
+
 let rec eval_expr (e: expr) : expr = match e with
 	| Var(x) -> Var(x)
 	| _ -> assert false
