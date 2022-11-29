@@ -29,7 +29,7 @@ type expr =
   | Address of expr 
   | StateRead of expr * string
   | Transfer of expr * expr
-  | New of string * expr (* list of expr ? parameters *)
+  | New of string * expr list
   | Cons of string * expr 
   | Seq of expr * expr
   | Let of t_exp *  string * expr * expr (* EM SOLIDITY NÃO EXISTE *)
@@ -114,14 +114,26 @@ let from_bool_ops_to_expr (e: bool_ops) : expr = match e with
   | Bool (bval) -> Val(VBool(bval))
   | _ -> assert false
 
+let from_expr_to_arit_ops (e: expr) : arit_ops = match e with
+  | Val (VUInt(i)) -> Num (i)
+  | _ -> assert false
+
+let from_expr_to_bool_ops (e: expr) : bool_ops = match e with
+  | Val (VBool(bval)) -> Bool (bval)
+  | _ -> assert false
+
+
 let rec eval_expr (e: expr) : expr = match e with
 	| Var(x) -> Var(x)
 	| _ -> assert false
 
+let rec expr_to_string (e: expr) : string = match e with
+  | _ -> assert false
+
 
 let bank_contract unit : contract_def = {
   name = "Bank";
-  state = [];
+  state = [(UInt, "balance")];
   constructor = ([], Return (Val(VUnit)));
   functions = [];
 }
