@@ -1,5 +1,7 @@
 (* BEFORE 0.5.0 there was no distinction between address and address payable!!! *)
 (* msg.sender.transfer(x) to payable(msg.sender).transfer(x) *)
+module FV = Set.Make(String)
+module FN = Set.Make(String)
 
 type t_exp = 
   | C of string (* * hash_contract_code? *)
@@ -128,6 +130,17 @@ let rec eval_expr (e: expr) : expr = match e with
 	| _ -> assert false
 
 let rec expr_to_string (e: expr) : string = match e with
+  | _ -> assert false
+
+let rec arit_op_to_string (e: arit_ops) : string = match e with
+  | Num n -> Stdlib.string_of_int n
+  | Plus (e1, e2) -> "(" ^ arit_op_to_string e1 ^ " + " ^ arit_op_to_string e2 ^ ")"
+  | Times (e1, e2) -> "(" ^ arit_op_to_string e1 ^ " * " ^ arit_op_to_string e2 ^ ")"
+  | _ -> assert false
+
+let rec bool_op_to_string (e: bool_ops) : string = match e with
+  | Bool(True) -> "true"
+  | Bool(False) -> "false"
   | _ -> assert false
 
 
