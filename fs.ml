@@ -9,6 +9,7 @@ type t_exp =
   | Unit 
   | UInt 
   | Address
+  | Map of t_exp * t_exp
 
 type b_val =
   | True
@@ -69,7 +70,6 @@ type fun_def = {
   rettype : t_exp;
   args : (t_exp * string) list;
   body : expr
-
 }
 
 type contract_def = {
@@ -144,12 +144,25 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
   | _ -> assert false
 
 
-let bank_contract unit : contract_def = {
-  name = "Bank";
-  state = [(UInt, "balance")];
-  constructor = ([], Return (Val(VUnit)));
-  functions = [];
-}
+let bank_contract unit : contract_def = 
+  let function1 = {
+    name = "f1";
+    rettype = Unit;
+    args = [];
+    body = Val(VUnit)
+  } in 
+  let function2 = {
+    name = "f2";
+    rettype = Unit;
+    args = [];
+    body = Val(VUnit)
+  } in 
+  {
+    name = "Bank";
+    state = [(Map(Address, UInt),"balances")];
+    constructor = ([(Map(Address, UInt),"balances")], Return (StateAssign(This, "balances", Val(VUInt(1)))));
+    functions = [function1; function2];
+  }
 
 let blood_bank_contract unit : contract_def = {
   name = "BloodBank";
@@ -159,6 +172,9 @@ let blood_bank_contract unit : contract_def = {
 }
 
 
+let () =
+  let e1 = (Plus(Num(1),Times(Num(2),Num(3)))) in
+  Format.eprintf "%s\n" (arit_op_to_string e1);
 
 
 
