@@ -22,6 +22,7 @@ type values =
   | VUnit 
   | VContract of string
 
+
 type expr =
   | Var of string
   | Val of values
@@ -35,7 +36,7 @@ type expr =
   | New of string * expr list
   | Cons of string * expr 
   | Seq of expr * expr
-  | Let of t_exp *  string * expr * expr (* EM SOLIDITY NÃO EXISTE *)
+  | Let of t_exp *  string * expr * expr (* EM SOLIDITY NÃO EXISTE *) 
   | Assign of string * expr
   | StateAssign of expr * string * expr
   | MapRead of expr * expr 
@@ -143,6 +144,11 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
   | Bool(False) -> "false"
   | _ -> assert false
 
+
+(* let rec free_variables_in_expr_list (es: expr list) : FV.t = match es with
+  | [] -> FV.empty
+  | x : xs ->  *)
+
 let rec free_variables (e: expr) : FV.t = match e with 
   | Val _ -> FV.empty
   | Var x -> FV.singleton x
@@ -153,19 +159,46 @@ let rec free_variables (e: expr) : FV.t = match e with
   | Address e1 -> free_variables e1 
   | StateRead (e1, _) ->  free_variables e1 
   | Transfer (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
-  | _ -> assert false
+  | New (_, le) -> assert false  (* TODO *)
+  | Cons _ -> assert false 
+  | Seq (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
+  | Let(_, x, e1, e2) -> FV.union (free_variables e1) ((FV.filter (fun (x') -> x <> x') (free_variables e2)))
+  | Assign (x, e1) -> FV.union (FV.singleton x) (free_variables e1)
+  | If (e1, e2, e3) -> FV.union (free_variables e1) (FV.union (free_variables e2) (free_variables e3))
+  | Call _ -> assert false 
+  | CallVariant _ -> assert false
+  | Revert -> FV.empty
+  | StateAssign _ -> assert false 
+  | MapRead _ -> assert false 
+  | MapWrite _ -> assert false
+  | Return e1 -> free_variables e1
+
 
 let rec free_addr_names (e: expr) : FN.t = match e with 
   | Val (VAddress(a)) -> FN.singleton a 
   | Val (VContract(c)) -> FN.singleton c
   | Val _ -> FN.empty 
   | This -> FN.empty 
+  | Var x -> FN.empty 
   | MsgSender -> FN.empty 
   | MsgValue -> FN.empty 
   | Address e1 -> free_addr_names e1 
   | Balance e1 -> free_addr_names e1
   | StateRead (e1, _) -> free_addr_names e1 
-  | _ -> assert false
+  | Transfer (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+  | New (_, le) -> assert false  (* TODO *)
+  | Cons _ -> assert false 
+  | Seq (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+  | Let(_, _, e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+  | Assign (_, e1) -> free_variables e1
+  | If (e1, e2, e3) -> FN.union (free_addr_names e1) (FV.union (free_addr_names e2) (free_addr_names e3))
+  | Call _ -> assert false 
+  | CallVariant _ -> assert false
+  | Revert -> FN.empty
+  | StateAssign _ -> assert false 
+  | MapRead _ -> assert false 
+  | MapWrite _ -> assert false
+  | Return e1 -> free_addr_names e1
 
 let bank_contract unit : contract_def = 
   let deposit = {
@@ -265,8 +298,10 @@ let getBlood = {
 }
 
 let () =
+  (* let x: int = 10 ; x + x ;*)
   let e1 = (Plus(Num(1),Times(Num(2),Num(3)))) in
   Format.eprintf "%s\n" (arit_op_to_string e1);
+
 
 
 
