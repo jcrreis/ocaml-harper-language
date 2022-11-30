@@ -143,6 +143,22 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
   | Bool(False) -> "false"
   | _ -> assert false
 
+let rec free_variables (e: expr) : FV.t = match e with 
+  | Val _ -> FV.empty
+  | Var x -> FV.singleton x
+  | This -> FV.singleton "this"
+  | MsgSender -> FV.singleton "msg.sender"
+  | MsgValue -> FV.singleton "msg.value"
+  | Balance e1 -> free_variables e1 
+  | Address e1 -> free_variables e1 
+  | StateRead (e1, _) ->  free_variables e1 
+  | Transfer (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
+  | _ -> assert false
+
+let rec free_addr_names (e: expr) : FN.t = match e with 
+  | Val (VAddress(a)) -> FN.singleton a 
+  | Val _ -> FN.empty 
+  | _ -> assert false
 
 let bank_contract unit : contract_def = 
   let deposit = {
