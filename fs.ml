@@ -176,13 +176,70 @@ let bank_contract unit : contract_def =
     functions = [deposit; getBalance; transfer; withdraw];
   }
 
-let blood_bank_contract unit : contract_def = {
+let blood_bank_contract unit : contract_def =
+let setHealth = {
+  name = "setHealth";
+  rettype = Unit;
+  args = [(Address, "donor"); (Bool, "isHealty")];
+  body = Val(VUnit);
+} in 
+let isHealty = {
+  name = "setHealth";
+  rettype = Unit;
+  args = [(Address, "donor")];
+  body = Val(VUnit);
+} in
+let donate = {
+  name = "donate";
+  rettype = Unit;
+  args = [(UInt, "amount")];
+  body = Val(VUnit);
+} in
+let getDoctor = {
+  name = "getDoctor";
+  rettype = Address;
+  args = [];
+  body = Val(VUnit);
+} in
+let getBlood = {
+  name = "getBlood";
+  rettype = UInt;
+  args = [];
+  body = Val(VUnit);
+} in
+{
   name = "BloodBank";
-  state = [];
+  state = [(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")];
   constructor = ([], Return (Val(VUnit)));
-  functions = [];
+  functions = [setHealth; isHealty; donate; getDoctor; getBlood];
 }
 
+
+let donor_contract unit : contract_def = 
+let donate = {
+  name = "donate";
+  rettype = Unit;
+  args = [(UInt, "amount")];
+  body = Val(VUnit);
+} in
+let getBank = {
+  name = "getBank";
+  rettype = C("BloodBank");
+  args = [];
+  body = Val(VUnit);
+} in
+let getBlood = {
+  name = "getBlood";
+  rettype = UInt;
+  args = [];
+  body = Val(VUnit);
+} in
+{
+  name = "Donor";
+  state = [(UInt, "blood"); (Address, "bank")];
+  constructor = ([], Return (Val(VUnit)));
+  functions = [donate; getBank; getBlood];
+}
 
 let () =
   let e1 = (Plus(Num(1),Times(Num(2),Num(3)))) in
