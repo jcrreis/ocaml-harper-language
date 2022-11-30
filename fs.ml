@@ -145,23 +145,35 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
 
 
 let bank_contract unit : contract_def = 
-  let function1 = {
-    name = "f1";
+  let deposit = {
+    name = "deposit";
     rettype = Unit;
     args = [];
     body = Val(VUnit)
   } in 
-  let function2 = {
-    name = "f2";
-    rettype = Unit;
+  let getBalance = {
+    name = "getBalance";
+    rettype = UInt;
     args = [];
+    body = Val(VUnit)
+  } in 
+  let transfer = {
+    name = "transfer";
+    rettype = Unit;
+    args = [(Address, "to"); (UInt, "amount")];
+    body = Val(VUnit)
+  } in 
+  let withdraw = {
+    name = "withdraw";
+    rettype = Unit;
+    args = [(UInt, "amount")];
     body = Val(VUnit)
   } in 
   {
     name = "Bank";
     state = [(Map(Address, UInt),"balances")];
     constructor = ([(Map(Address, UInt),"balances")], Return (StateAssign(This, "balances", Val(VUInt(1)))));
-    functions = [function1; function2];
+    functions = [deposit; getBalance; transfer; withdraw];
   }
 
 let blood_bank_contract unit : contract_def = {
