@@ -157,7 +157,14 @@ let rec free_variables (e: expr) : FV.t = match e with
 
 let rec free_addr_names (e: expr) : FN.t = match e with 
   | Val (VAddress(a)) -> FN.singleton a 
+  | Val (VContract(c)) -> FN.singleton c
   | Val _ -> FN.empty 
+  | This -> FN.empty 
+  | MsgSender -> FN.empty 
+  | MsgValue -> FN.empty 
+  | Address e1 -> free_addr_names e1 
+  | Balance e1 -> free_addr_names e1
+  | StateRead (e1, _) -> free_addr_names e1 
   | _ -> assert false
 
 let bank_contract unit : contract_def = 
