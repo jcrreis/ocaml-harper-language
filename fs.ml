@@ -200,35 +200,66 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | MapWrite _ -> assert false
   | Return e1 -> free_addr_names e1
 
+  (* | StateRead of expr * string
+  | Transfer of expr * expr
+  | New of string * expr list
+  | Cons of string * expr 
+  | Seq of expr * expr
+  | Let of t_exp *  string * expr * expr (* EM SOLIDITY NÃO EXISTE *) 
+  | Assign of string * expr
+  | StateAssign of expr * string * expr
+  | MapRead of expr * expr 
+  | MapWrite of expr * expr * expr *)
+
+
 let bank_contract unit : contract_def = 
   let deposit = {
     name = "deposit";
     rettype = Unit;
     args = [];
-    body = Val(VUnit)
+    body = Return(
+      (StateAssign(
+        This, 
+        "balances", 
+        MapWrite(
+          StateRead(This,"balances"), MsgSender, eval_arit_expr (Plus(MapRead(StateRead(This,"balances"),MsgSender), MsgValue))))))
   } in 
   let getBalance = {
     name = "getBalance";
     rettype = UInt;
     args = [];
-    body = Val(VUnit)
+    body = MapRead(StateRead(This,"balances"),MsgSender)
   } in 
   let transfer = {
     name = "transfer";
     rettype = Unit;
     args = [(Address, "to"); (UInt, "amount")];
-    body = Val(VUnit)
+    body = If(GreaterOrEquals(MapRead(StateRead(This,"balances"),MsgSender),Var("amount")), 
+          Seq(StateAssign(This, "balances", MapWrite(
+            StateRead(This,"balances"), MsgSender, Minus(MapRead(StateRead(This,"balances"),MsgSender), Var("amount")))),
+              StateAssign(This, "balances", MapWrite(
+            StateRead(This,"balances"), Var("to"), Minus(MapRead(StateRead(This,"balances"),Var("to")), Var("amount"))))
+            ),
+          Val(Unit)
+    )
   } in 
   let withdraw = {
     name = "withdraw";
     rettype = Unit;
     args = [(UInt, "amount")];
-    body = Val(VUnit)
+    body = If(GreaterOrEquals(MapRead(StateRead(This,"balances"),MsgSender),Var("amount")),
+            Seq(
+              StateAssign(This, "balances", MapWrite(
+              StateRead(This,"balances"), MsgSender, Minus(MapRead(StateRead(This,"balances"),MsgSender), Var("amount")))),
+              Transfer(MsgSender, Var("x"))
+              ),
+            Val(Unit)
+    )
   } in 
   {
     name = "Bank";
     state = [(Map(Address, UInt),"balances")];
-    constructor = ([(Map(Address, UInt),"balances")], Return (StateAssign(This, "balances", Val(VUInt(1)))));
+    constructor = ([(Map(Address, UInt),"balances")], Return (StateAssign(This, "balances", Var("balances"))));
     functions = [deposit; getBalance; transfer; withdraw];
   }
 
@@ -237,13 +268,27 @@ let setHealth = {
   name = "setHealth";
   rettype = Unit;
   args = [(Address, "donor"); (Bool, "isHealty")];
-  body = Val(VUnit);
+  body = Return (
+    If(Equals(MsgSender, StateRead(This, "doctor")),
+      (StateAssign(
+      This, 
+      "healty", 
+      MapWrite(
+        StateRead(This,"healty"), Var("donor"), Var("isHealty")))),
+      Revert
+    )
+  );
 } in 
 let isHealty = {
   name = "setHealth";
   rettype = Unit;
   args = [(Address, "donor")];
-  body = Val(VUnit);
+  body = Return(
+    If(Equals(MsgSender, StateRead(This, "doctor")),
+      MapRead(StateRead(This, "healty"), Var("donor")),
+      Revert
+    )
+  );
 } in
 let donate = {
   name = "donate";
@@ -266,7 +311,11 @@ let getBlood = {
 {
   name = "BloodBank";
   state = [(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")];
-  constructor = ([], Return (Val(VUnit)));
+  constructor = ([], Return 
+        Seq((StateAssign(This, "healty", Var("healty")),
+          Seq((StateAssign(This, "doctor", Var("doctor"))),
+               StateAssign(This, "blood", Var("blood"))))
+  ));
   functions = [setHealth; isHealty; donate; getDoctor; getBlood];
 }
 
