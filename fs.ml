@@ -313,7 +313,7 @@ let getBlood = {
 {
   name = "BloodBank";
   state = [(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")];
-  constructor = ([], Return 
+  constructor = ([(Map(Address, Bool), "healty");; (Address, "doctor"); (UInt, "blood")], Return 
         Seq((StateAssign(This, "healty", Var("healty")),
           Seq((StateAssign(This, "doctor", Var("doctor"))),
                StateAssign(This, "blood", Var("blood"))))
@@ -344,7 +344,7 @@ let getBlood = {
 {
   name = "Donor";
   state = [(UInt, "blood"); (Address, "bank")];
-  constructor = ([], Return (Seq(
+  constructor = ([(UInt, "blood"); (Address,"bank")], Return (Seq(
     StateAssign(This, "blood", Var("blood")),
     StateAssign(This, "bank", Var("bank"))
   )));
