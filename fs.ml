@@ -294,19 +294,21 @@ let donate = {
   name = "donate";
   rettype = Unit;
   args = [(UInt, "amount")];
-  body = Val(VUnit);
+  body = Return(
+    Let(UInt, "donorBlod",Val(VUnit),If())
+  );
 } in
 let getDoctor = {
   name = "getDoctor";
   rettype = Address;
   args = [];
-  body = Val(VUnit);
+  body = Return(StateRead(This, "doctor"));
 } in
 let getBlood = {
   name = "getBlood";
   rettype = UInt;
   args = [];
-  body = Val(VUnit);
+  body = Return(StateRead(This, "blood"));
 } in
 {
   name = "BloodBank";
@@ -331,18 +333,21 @@ let getBank = {
   name = "getBank";
   rettype = C("BloodBank");
   args = [];
-  body = Val(VUnit);
+  body = Return(StateRead(This, "bank"));
 } in
 let getBlood = {
   name = "getBlood";
   rettype = UInt;
   args = [];
-  body = Val(VUnit);
+  body = Return(StateRead(This, "blood"));
 } in
 {
   name = "Donor";
   state = [(UInt, "blood"); (Address, "bank")];
-  constructor = ([], Return (Val(VUnit)));
+  constructor = ([], Return (Seq(
+    StateAssign(This, "blood", Var("blood")),
+    StateAssign(This, "bank", Var("bank"))
+  )));
   functions = [donate; getBank; getBlood];
 }
 
