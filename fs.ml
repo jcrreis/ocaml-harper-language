@@ -165,8 +165,8 @@ let rec free_variables (e: expr) : FV.t = match e with
   | Let(_, x, e1, e2) -> FV.union (free_variables e1) ((FV.filter (fun (x') -> x <> x') (free_variables e2)))
   | Assign (x, e1) -> FV.union (FV.singleton x) (free_variables e1)
   | If (e1, e2, e3) -> FV.union (free_variables e1) (FV.union (free_variables e2) (free_variables e3))
-  | Call _ -> assert false 
-  | CallVariant _ -> assert false
+  | Call (e1, _, e2, le) -> assert false 
+  | CallVariant (e1, _, e2, e3, le) -> assert false
   | Revert -> FV.empty
   | StateAssign (e1, _ , e2) -> FV.union (free_variables e1) (free_variables e2)
   | MapRead (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
@@ -192,14 +192,15 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | Let(_, _, e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | Assign (_, e1) -> free_variables e1
   | If (e1, e2, e3) -> FN.union (free_addr_names e1) (FV.union (free_addr_names e2) (free_addr_names e3))
-  | Call _ -> assert false 
-  | CallVariant _ -> assert false
+  | Call (e1, _, e2, le) -> assert false 
+  | CallVariant (e1, _, e2, e3, le) -> assert false
   | Revert -> FN.empty
   | StateAssign (e1, _ , e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | MapRead (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | MapWrite (e1, e2, e3) -> FN.union (free_addr_names e1) (FV.union (free_addr_names e2) (free_addr_names e3))
   | Return e1 -> free_addr_names e1
 
+  (* Blockchain maps cases? *)
 
 let bank_contract unit : contract_def = 
   let deposit = {
