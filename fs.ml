@@ -160,7 +160,7 @@ let rec free_variables (e: expr) : FV.t = match e with
   | StateRead (e1, _) ->  free_variables e1 
   | Transfer (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
   | New (_, le) -> assert false  (* TODO *)
-  | Cons _ -> assert false 
+  | Cons (_, e1) -> free_variables e1
   | Seq (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
   | Let(_, x, e1, e2) -> FV.union (free_variables e1) ((FV.filter (fun (x') -> x <> x') (free_variables e2)))
   | Assign (x, e1) -> FV.union (FV.singleton x) (free_variables e1)
@@ -168,9 +168,9 @@ let rec free_variables (e: expr) : FV.t = match e with
   | Call _ -> assert false 
   | CallVariant _ -> assert false
   | Revert -> FV.empty
-  | StateAssign _ -> assert false 
-  | MapRead _ -> assert false 
-  | MapWrite _ -> assert false
+  | StateAssign (e1, _ , e2) -> FV.union (free_variables e1) (free_variables e2)
+  | MapRead (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
+  | MapWrite (e1, e2, e3) -> FV.union (free_variables e1) (FV.union (free_variables e2) (free_variables e3))
   | Return e1 -> free_variables e1
 
 
@@ -187,7 +187,7 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | StateRead (e1, _) -> free_addr_names e1 
   | Transfer (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | New (_, le) -> assert false  (* TODO *)
-  | Cons _ -> assert false 
+  | Cons (_, e1) -> free_addr_names e1
   | Seq (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | Let(_, _, e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | Assign (_, e1) -> free_variables e1
@@ -195,9 +195,9 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | Call _ -> assert false 
   | CallVariant _ -> assert false
   | Revert -> FN.empty
-  | StateAssign _ -> assert false 
-  | MapRead _ -> assert false 
-  | MapWrite _ -> assert false
+  | StateAssign (e1, _ , e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+  | MapRead (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+  | MapWrite (e1, e2, e3) -> FN.union (free_addr_names e1) (FV.union (free_addr_names e2) (free_addr_names e3))
   | Return e1 -> free_addr_names e1
 
 
