@@ -200,17 +200,6 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | MapWrite _ -> assert false
   | Return e1 -> free_addr_names e1
 
-  (* | StateRead of expr * string
-  | Transfer of expr * expr
-  | New of string * expr list
-  | Cons of string * expr 
-  | Seq of expr * expr
-  | Let of t_exp *  string * expr * expr (* EM SOLIDITY NÃO EXISTE *) 
-  | Assign of string * expr
-  | StateAssign of expr * string * expr
-  | MapRead of expr * expr 
-  | MapWrite of expr * expr * expr *)
-
 
 let bank_contract unit : contract_def = 
   let deposit = {
@@ -263,6 +252,17 @@ let bank_contract unit : contract_def =
     functions = [deposit; getBalance; transfer; withdraw];
   }
 
+  (* | StateRead of expr * string
+  | Transfer of expr * expr
+  | New of string * expr list
+  | Cons of string * expr 
+  | Seq of expr * expr
+  | Let of t_exp *  string * expr * expr (* EM SOLIDITY NÃO EXISTE *) 
+  | Assign of string * expr
+  | StateAssign of expr * string * expr
+  | MapRead of expr * expr 
+  | MapWrite of expr * expr * expr *)
+
 let blood_bank_contract unit : contract_def =
 let setHealth = {
   name = "setHealth";
@@ -313,7 +313,7 @@ let getBlood = {
 {
   name = "BloodBank";
   state = [(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")];
-  constructor = ([(Map(Address, Bool), "healty");; (Address, "doctor"); (UInt, "blood")], Return 
+  constructor = ([(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")], Return 
         Seq((StateAssign(This, "healty", Var("healty")),
           Seq((StateAssign(This, "doctor", Var("doctor"))),
                StateAssign(This, "blood", Var("blood"))))
