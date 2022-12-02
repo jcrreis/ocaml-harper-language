@@ -56,9 +56,9 @@ and arit_ops =
   | Mod of arit_ops * arit_ops 
 and bool_ops =
   | Bool of b_val
-  | Neg of b_val
-  | Conj of b_val * b_val
-  | Disj of b_val * b_val
+  | Neg of bool_ops
+  | Conj of bool_ops * bool_ops
+  | Disj of bool_ops * bool_ops
   | Equals of bool_ops * bool_ops 
   | Greater of bool_ops * bool_ops 
   | GreaterOrEquals of bool_ops * bool_ops
@@ -165,8 +165,8 @@ let rec free_variables (e: expr) : FV.t = match e with
   | Let(_, x, e1, e2) -> FV.union (free_variables e1) ((FV.filter (fun (x') -> x <> x') (free_variables e2)))
   | Assign (x, e1) -> FV.union (FV.singleton x) (free_variables e1)
   | If (e1, e2, e3) -> FV.union (free_variables e1) (FV.union (free_variables e2) (free_variables e3))
-  | Call (e1, _, e2, le) -> assert false 
-  | CallVariant (e1, _, e2, e3, le) -> assert false
+  | Call (e1, _, e2, le) -> FV.union (free_variables e1) (free_variables e2)
+  | CallVariant (e1, _, e2, e3, le) -> FV.union (free_variables e1) (FV.union (free_variables e2) (free_variables e3))
   | Revert -> FV.empty
   | StateAssign (e1, _ , e2) -> FV.union (free_variables e1) (free_variables e2)
   | MapRead (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
@@ -192,8 +192,8 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | Let(_, _, e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | Assign (_, e1) -> free_variables e1
   | If (e1, e2, e3) -> FN.union (free_addr_names e1) (FV.union (free_addr_names e2) (free_addr_names e3))
-  | Call (e1, _, e2, le) -> assert false 
-  | CallVariant (e1, _, e2, e3, le) -> assert false
+  | Call (e1, _, e2, le) -> FN.union (free_addr_names e1) (free_addr_names e2)
+  | CallVariant (e1, _, e2, e3, le) ->  FN.union (free_addr_names e1) (FV.union (free_addr_names e2) (free_addr_names e3))
   | Revert -> FN.empty
   | StateAssign (e1, _ , e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | MapRead (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
@@ -296,7 +296,16 @@ let donate = {
   rettype = Unit;
   args = [(UInt, "amount")];
   body = Return(
-    Let(UInt, "donorBlod",Val(VUnit),If())
+    Let(UInt, "donorBlod",Val(VContract(MsgSender)),If(
+      Conj(MapRead(StateRead(This, "healty"), MsgSender), Conj(
+        Greater(Var("donorBlood"),Val(VUInt(3000))), Greater(
+          Minus(Var("donorBlood"), Var("amount")), Val(VUInt(0))
+        )
+      ))
+    ),
+      StateAssign(This, "blood", Plus(StateRead(This, "blood"), Var("amount"))),
+      Val(VUnit)
+    )
   );
 } in
 let getDoctor = {
