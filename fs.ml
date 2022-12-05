@@ -161,7 +161,7 @@ let rec free_variables (e: expr) : FV.t = match e with
   | Transfer (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
   | New (_, le) -> begin let rec aux_fun set lst = match lst with 
     | [] -> set
-    | x :: xs -> let fvsx = free_variables x in aux_fun (FV.union set fvsx) lst 
+    | x :: xs -> let fvsx = free_variables x in aux_fun (FV.union set fvsx) xs 
     in aux_fun FV.empty le
     end 
   (*List.iter (fun (e1) -> free_variables e1)*)
@@ -370,6 +370,12 @@ let () =
   (* let x: int = 10 ; x + x ;*)
   let e1 = (Plus(Num(1),Times(Num(2),Num(3)))) in
   Format.eprintf "%s\n" (arit_op_to_string e1);
+  let print_set s = FV.iter print_endline s in
+  let e2 = New("BloodBank", [StateRead(This, "blood"); MsgSender]) in
+  let lst = free_variables e2 in 
+  print_set lst;
+
+
 
 
 
