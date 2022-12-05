@@ -130,9 +130,7 @@ let from_expr_to_bool_ops (e: expr) : bool_ops = match e with
   | _ -> assert false
 
 
-let rec eval_expr (e: expr) : expr = match e with
-	| Var(x) -> Var(x)
-	| _ -> assert false
+
 
 let rec expr_to_string (e: expr) : string = match e with
   | _ -> assert false
@@ -148,11 +146,9 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
   | Bool(False) -> "false"
   | _ -> assert false *)
 
-
-(* let rec free_variables_in_expr_list (es: expr list) : FV.t = match es with
-  | [] -> FV.empty
-  | x : xs ->  *)
-
+let rec eval_expr (e: expr) (vars: (string, expr) Hashtbl.t): expr = match e with
+  | Var(x) -> Var(x)
+  | _ -> assert false
 
 let rec free_variables (e: expr) : FV.t = match e with 
   
@@ -165,11 +161,11 @@ let rec free_variables (e: expr) : FV.t = match e with
   | Address e1 -> free_variables e1 
   | StateRead (e1, _) ->  free_variables e1 
   | Transfer (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
-  (* | New (_, le) -> begin let rec aux_fun set lst = match lst with 
+  | New (_, le) -> begin let rec aux_fun set lst = match lst with 
     | [] -> set
     | x :: xs -> let fvsx = free_variables x in aux_fun (FV.union set fvsx) xs 
     in aux_fun FV.empty le
-    end  *)
+    end 
   (* | New (_, le) -> List.map  *)
   | Cons (_, e1) -> free_variables e1
   | Seq (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
@@ -183,6 +179,8 @@ let rec free_variables (e: expr) : FV.t = match e with
   | MapRead (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
   | MapWrite (e1, e2, e3) -> FV.union (free_variables e1) (FV.union (free_variables e2) (free_variables e3))
   | Return e1 -> free_variables e1
+  | AritOp e1 -> FV.empty
+  | BoolOp e1 -> FV.empty
 
 
 let rec free_addr_names (e: expr) : FN.t = match e with 
@@ -214,6 +212,8 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | MapRead (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | MapWrite (e1, e2, e3) -> FN.union (free_addr_names e1) (FV.union (free_addr_names e2) (free_addr_names e3))
   | Return e1 -> free_addr_names e1
+  | AritOp e1 -> FV.empty 
+  | BoolOp e1 -> FV.empty
 
   (* Blockchain maps cases? *)
 
@@ -267,16 +267,6 @@ let bank_contract unit : contract_def =
     functions = [deposit; getBalance; transfer; withdraw];
   }
 
-  (* | StateRead of expr * string
-  | Transfer of expr * expr
-  | New of string * expr list
-  | Cons of string * expr 
-  | Seq of expr * expr
-  | Let of t_exp *  string * expr * expr (* EM SOLIDITY NÃO EXISTE *) 
-  | Assign of string * expr
-  | StateAssign of expr * string * expr
-  | MapRead of expr * expr 
-  | MapWrite of expr * expr * expr *)
 
 let blood_bank_contract unit : contract_def =
 let setHealth = {
@@ -311,16 +301,13 @@ let donate = {
   rettype = Unit;
   args = [(UInt, "amount")];
   body = Return(
-    Let(UInt, "donorBlod",Call(Val(VContract("asx")),"getBlood",Val(VUInt(0)),[]),
-    (If(Conj(MapRead(StateRead(This, "healty"), MsgSender), Conj(
-        Greater(Var("donorBlood"),Val(VUInt(3000))), Greater(
-          Minus(Var("donorBlood"), Var("amount")), Val(VUInt(0)))
-      ))
-    ),
-      StateAssign(This, "blood", Plus(StateRead(This, "blood"), Var("amount"))),
+    Let(UInt, "donorBlood",Call(Val(VContract("asx")),"getBlood",Val(VUInt(0)),[]),
+    If(BoolOp(Conj(MapRead(StateRead(This, "healty"), MsgSender), BoolOp(Conj(
+      BoolOp(Greater(Var("donorBlood"),Val(VUInt(3000)))), BoolOp(Greater(
+        AritOp(Minus(Var("donorBlood"), Var("amount"))), Val(VUInt(0)))))))),
+      StateAssign(This, "blood", AritOp(Plus(StateRead(This, "blood"), Var("amount")))),
       Val(VUnit)
-    )
-  ));
+  )));
 } in
 let getDoctor = {
   name = "getDoctor";
@@ -377,8 +364,8 @@ let getBlood = {
 
 let () =
   (* let x: int = 10 ; x + x ;*)
-  let e1 = (Plus(Num(1),Times(Num(2),Num(3)))) in
-  Format.eprintf "%s\n" (arit_op_to_string e1);
+  (* let e1 = (AritOp(Plus(Num(1),Times(Num(2),Num(3))))) in
+  Format.eprintf "%s\n" (arit_op_to_string e1); *)
   let print_set s = FV.iter print_endline s in
   let e2 = New("BloodBank", [StateRead(This, "blood"); MsgSender;Val (VAddress("0x01232"))]) in
   let lst = free_addr_names e2 in 
