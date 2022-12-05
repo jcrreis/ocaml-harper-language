@@ -41,8 +41,8 @@ type expr =
   | StateAssign of expr * string * expr
   | MapRead of expr * expr 
   | MapWrite of expr * expr * expr
-  | Call of expr * string * expr * expr list
-  | CallVariant of expr * string * expr * expr * expr list
+  | Call of expr * string * expr * expr list (* e.f.value(e)(le) *)
+  | CallVariant of expr * string * expr * expr * expr list (* e.f.value(e).sender(e)(le) *)
   | Revert
   | If of expr * expr * expr 
   | Return of expr
@@ -94,18 +94,18 @@ let rec eval_arit_expr (e: arit_ops) : arit_ops = match e with
 
 let rec eval_bool_expr (e: bool_ops) : bool_ops = match e with
   | Neg (b1) -> begin match b1 with 
-    | False -> Bool(True)
-    | True -> Bool(False)
+    | Bool(False) -> Bool(True)
+    | Bool(True) -> Bool(False)
     end
   | Conj (b1, b2) -> begin match b1, b2 with
-    | False, _ -> Bool(False) 
-    | _, False -> Bool(False)
-    | True, True -> Bool(True)
+    | Bool(False), _ -> Bool(False) 
+    | _, Bool(False) -> Bool(False)
+    | Bool(True), Bool(True) -> Bool(True)
     end  
   | Disj (b1, b2) -> begin match b1, b2 with
-    | True, _ -> Bool(True)
-    | _, True -> Bool(True)
-    | False, False -> Bool(False) 
+    | Bool(True), _ -> Bool(True)
+    | _, Bool(True) -> Bool(True)
+    | Bool(False), Bool(False) -> Bool(False) 
     end
   | _ -> assert false
 
@@ -159,7 +159,12 @@ let rec free_variables (e: expr) : FV.t = match e with
   | Address e1 -> free_variables e1 
   | StateRead (e1, _) ->  free_variables e1 
   | Transfer (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
-  | New (_, le) -> assert false  (* TODO *)
+  | New (_, le) -> begin let rec aux_fun set lst = match lst with 
+    | [] -> set
+    | x :: xs -> let fvsx = free_variables x in aux_fun (FV.union set fvsx) lst 
+    in aux_fun FV.empty le
+    end 
+  (*List.iter (fun (e1) -> free_variables e1)*)
   | Cons (_, e1) -> free_variables e1
   | Seq (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
   | Let(_, x, e1, e2) -> FV.union (free_variables e1) ((FV.filter (fun (x') -> x <> x') (free_variables e2)))
@@ -202,7 +207,7 @@ let rec free_addr_names (e: expr) : FN.t = match e with
 
   (* Blockchain maps cases? *)
 
-let bank_contract unit : contract_def = 
+(* let bank_contract unit : contract_def = 
   let deposit = {
     name = "deposit";
     rettype = Unit;
@@ -292,15 +297,15 @@ let isHealty = {
   );
 } in
 let donate = {
+  (* |Call of expr * string * expr * expr list e.f.value(e)(le) *)
   name = "donate";
   rettype = Unit;
   args = [(UInt, "amount")];
   body = Return(
-    Let(UInt, "donorBlod",Val(VContract(MsgSender)),If(
-      Conj(MapRead(StateRead(This, "healty"), MsgSender), Conj(
+    Let(UInt, "donorBlod",Call(Val(VContract(MsgSender)),"getBlood",Val(VUInt(0)),[]),
+    If(Conj(MapRead(StateRead(This, "healty"), MsgSender), Conj(
         Greater(Var("donorBlood"),Val(VUInt(3000))), Greater(
-          Minus(Var("donorBlood"), Var("amount")), Val(VUInt(0))
-        )
+          Minus(Var("donorBlood"), Var("amount")), Val(VUInt(0)))
       ))
     ),
       StateAssign(This, "blood", Plus(StateRead(This, "blood"), Var("amount"))),
@@ -359,7 +364,7 @@ let getBlood = {
     StateAssign(This, "bank", Var("bank"))
   )));
   functions = [donate; getBank; getBlood];
-}
+} *)
 
 let () =
   (* let x: int = 10 ; x + x ;*)
