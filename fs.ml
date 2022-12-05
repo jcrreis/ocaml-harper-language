@@ -191,7 +191,11 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | Balance e1 -> free_addr_names e1
   | StateRead (e1, _) -> free_addr_names e1 
   | Transfer (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
-  | New (_, le) -> assert false  (* TODO *)
+  | New (_, le) -> begin let rec aux_fun set lst = match lst with 
+    | [] -> set
+    | x :: xs -> let fnsx = free_addr_names x in aux_fun (FN.union set fnsx) xs 
+    in aux_fun FN.empty le
+    end 
   | Cons (_, e1) -> free_addr_names e1
   | Seq (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | Let(_, _, e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
@@ -371,8 +375,8 @@ let () =
   let e1 = (Plus(Num(1),Times(Num(2),Num(3)))) in
   Format.eprintf "%s\n" (arit_op_to_string e1);
   let print_set s = FV.iter print_endline s in
-  let e2 = New("BloodBank", [StateRead(This, "blood"); MsgSender]) in
-  let lst = free_variables e2 in 
+  let e2 = New("BloodBank", [StateRead(This, "blood"); MsgSender;Val (VAddress("0x01232"))]) in
+  let lst = free_addr_names e2 in 
   print_set lst;
 
 
