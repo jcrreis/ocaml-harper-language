@@ -22,8 +22,30 @@ type values =
   | VUnit 
   | VContract of string
 
+type arit_ops = 
+  | Num of int
+  | Plus of arit_ops * arit_ops 
+  | Div of arit_ops * arit_ops 
+  | Times of arit_ops * arit_ops
+  | Minus of arit_ops * arit_ops 
+  | Exp of arit_ops * arit_ops 
+  | Mod of arit_ops * arit_ops 
+
+type bool_ops =
+  | Bool of b_val
+  | Neg of bool_ops
+  | Conj of bool_ops * bool_ops
+  | Disj of bool_ops * bool_ops
+  | Equals of arit_ops * arit_ops 
+  | Greater of arit_ops * arit_ops 
+  | GreaterOrEquals of arit_ops * arit_ops
+  | Lesser of arit_ops * arit_ops
+  | LessOrEquals of arit_ops * arit_ops
+  | Inequals of arit_ops * arit_ops
 
 type expr =
+  | AritOp of arit_ops
+  | BoolOp of bool_ops
   | Var of string
   | Val of values
   | This 
@@ -46,25 +68,6 @@ type expr =
   | Revert
   | If of expr * expr * expr 
   | Return of expr
-and arit_ops = 
-  | Num of int
-  | Plus of arit_ops * arit_ops 
-  | Div of arit_ops * arit_ops 
-  | Times of arit_ops * arit_ops
-  | Minus of arit_ops * arit_ops 
-  | Exp of arit_ops * arit_ops 
-  | Mod of arit_ops * arit_ops 
-and bool_ops =
-  | Bool of b_val
-  | Neg of bool_ops
-  | Conj of bool_ops * bool_ops
-  | Disj of bool_ops * bool_ops
-  | Equals of bool_ops * bool_ops 
-  | Greater of bool_ops * bool_ops 
-  | GreaterOrEquals of bool_ops * bool_ops
-  | Lesser of bool_ops * bool_ops
-  | LessOrEquals of bool_ops * bool_ops
-  | Inequals of bool_ops * bool_ops
   
 type fun_def = {
   name : string;
@@ -149,7 +152,9 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
   | [] -> FV.empty
   | x : xs ->  *)
 
+
 let rec free_variables (e: expr) : FV.t = match e with 
+  
   | Val _ -> FV.empty
   | Var x -> FV.singleton x
   | This -> FV.singleton "this"
@@ -159,12 +164,12 @@ let rec free_variables (e: expr) : FV.t = match e with
   | Address e1 -> free_variables e1 
   | StateRead (e1, _) ->  free_variables e1 
   | Transfer (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
-  | New (_, le) -> begin let rec aux_fun set lst = match lst with 
+  (* | New (_, le) -> begin let rec aux_fun set lst = match lst with 
     | [] -> set
     | x :: xs -> let fvsx = free_variables x in aux_fun (FV.union set fvsx) xs 
     in aux_fun FV.empty le
-    end 
-  (*List.iter (fun (e1) -> free_variables e1)*)
+    end  *)
+  (* | New (_, le) -> List.map  *)
   | Cons (_, e1) -> free_variables e1
   | Seq (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
   | Let(_, x, e1, e2) -> FV.union (free_variables e1) ((FV.filter (fun (x') -> x <> x') (free_variables e2)))
@@ -211,7 +216,7 @@ let rec free_addr_names (e: expr) : FN.t = match e with
 
   (* Blockchain maps cases? *)
 
-(* let bank_contract unit : contract_def = 
+let bank_contract unit : contract_def = 
   let deposit = {
     name = "deposit";
     rettype = Unit;
@@ -221,7 +226,7 @@ let rec free_addr_names (e: expr) : FN.t = match e with
         This, 
         "balances", 
         MapWrite(
-          StateRead(This,"balances"), MsgSender, eval_arit_expr (Plus(MapRead(StateRead(This,"balances"),MsgSender), MsgValue))))))
+          StateRead(This,"balances"), MsgSender, (Plus(MapRead(StateRead(This,"balances"),MsgSender), MsgValue))))))
   } in 
   let getBalance = {
     name = "getBalance";
@@ -233,7 +238,7 @@ let rec free_addr_names (e: expr) : FN.t = match e with
     name = "transfer";
     rettype = Unit;
     args = [(Address, "to"); (UInt, "amount")];
-    body = If(GreaterOrEquals(MapRead(StateRead(This,"balances"),MsgSender),Var("amount")), 
+    body = If(GreaterOrEquals(AritOp(MapRead(StateRead(This,"balances"),MsgSender)),AritOp(Var("amount"))), 
           Seq(StateAssign(This, "balances", MapWrite(
             StateRead(This,"balances"), MsgSender, Minus(MapRead(StateRead(This,"balances"),MsgSender), Var("amount")))),
               StateAssign(This, "balances", MapWrite(
@@ -368,7 +373,7 @@ let getBlood = {
     StateAssign(This, "bank", Var("bank"))
   )));
   functions = [donate; getBank; getBlood];
-} *)
+}
 
 let () =
   (* let x: int = 10 ; x + x ;*)
