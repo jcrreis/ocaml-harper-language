@@ -24,26 +24,26 @@ type values =
 
 type arit_ops = 
   | Num of int
-  | Plus of arit_ops * arit_ops 
-  | Div of arit_ops * arit_ops 
-  | Times of arit_ops * arit_ops
-  | Minus of arit_ops * arit_ops 
-  | Exp of arit_ops * arit_ops 
-  | Mod of arit_ops * arit_ops 
+  | Plus of expr * expr 
+  | Div of expr * expr 
+  | Times of expr * expr
+  | Minus of expr * expr 
+  | Exp of expr * expr 
+  | Mod of expr * expr 
 
-type bool_ops =
+and bool_ops =
   | Bool of b_val
-  | Neg of bool_ops
-  | Conj of bool_ops * bool_ops
-  | Disj of bool_ops * bool_ops
-  | Equals of arit_ops * arit_ops 
-  | Greater of arit_ops * arit_ops 
-  | GreaterOrEquals of arit_ops * arit_ops
-  | Lesser of arit_ops * arit_ops
-  | LessOrEquals of arit_ops * arit_ops
-  | Inequals of arit_ops * arit_ops
+  | Neg of expr
+  | Conj of expr * expr
+  | Disj of expr * expr
+  | Equals of expr * expr 
+  | Greater of expr * expr 
+  | GreaterOrEquals of expr * expr
+  | Lesser of expr * expr
+  | LessOrEquals of expr * expr
+  | Inequals of expr * expr
 
-type expr =
+and expr =
   | AritOp of arit_ops
   | BoolOp of bool_ops
   | Var of string
@@ -69,6 +69,7 @@ type expr =
   | If of expr * expr * expr 
   | Return of expr
   
+  
 type fun_def = {
   name : string;
   rettype : t_exp;
@@ -87,7 +88,7 @@ let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64
 
 let blockchain: ((values * values), (string * values(*state vars*) * values)) Hashtbl.t = Hashtbl.create 64
 
-let rec eval_arit_expr (e: arit_ops) : arit_ops = match e with
+(* let rec eval_arit_expr (e: arit_ops) : arit_ops = match e with
   | Plus (e1, e2) -> begin match e1, e2 with
     | Num n1, Num n2 -> Num (n1 + n2)
     | Num n1, e2 -> eval_arit_expr (Plus(Num(n1), eval_arit_expr e2))
@@ -145,7 +146,7 @@ let rec arit_op_to_string (e: arit_ops) : string = match e with
 let rec bool_op_to_string (e: bool_ops) : string = match e with
   | Bool(True) -> "true"
   | Bool(False) -> "false"
-  | _ -> assert false
+  | _ -> assert false *)
 
 
 (* let rec free_variables_in_expr_list (es: expr list) : FV.t = match es with
@@ -226,7 +227,7 @@ let bank_contract unit : contract_def =
         This, 
         "balances", 
         MapWrite(
-          StateRead(This,"balances"), MsgSender, (Plus(MapRead(StateRead(This,"balances"),MsgSender), MsgValue))))))
+          StateRead(This,"balances"), MsgSender, AritOp((Plus(MapRead(StateRead(This,"balances"),MsgSender), MsgValue)))))))
   } in 
   let getBalance = {
     name = "getBalance";
@@ -238,26 +239,25 @@ let bank_contract unit : contract_def =
     name = "transfer";
     rettype = Unit;
     args = [(Address, "to"); (UInt, "amount")];
-    body = If(GreaterOrEquals(AritOp(MapRead(StateRead(This,"balances"),MsgSender)),AritOp(Var("amount"))), 
+    body = If(BoolOp(GreaterOrEquals(MapRead(StateRead(This,"balances"),MsgSender),Var("amount"))), 
           Seq(StateAssign(This, "balances", MapWrite(
-            StateRead(This,"balances"), MsgSender, Minus(MapRead(StateRead(This,"balances"),MsgSender), Var("amount")))),
+            StateRead(This,"balances"), MsgSender, AritOp(Minus(MapRead(StateRead(This,"balances"),MsgSender), Var("amount"))))),
               StateAssign(This, "balances", MapWrite(
-            StateRead(This,"balances"), Var("to"), Minus(MapRead(StateRead(This,"balances"),Var("to")), Var("amount"))))
+            StateRead(This,"balances"), Var("to"), AritOp(Minus(MapRead(StateRead(This,"balances"),Var("to")), Var("amount")))))
             ),
-          Val(Unit)
-    )
+          Val(VUnit))
   } in 
   let withdraw = {
     name = "withdraw";
     rettype = Unit;
     args = [(UInt, "amount")];
-    body = If(GreaterOrEquals(MapRead(StateRead(This,"balances"),MsgSender),Var("amount")),
+    body = If(BoolOp(GreaterOrEquals(MapRead(StateRead(This,"balances"),MsgSender),Var("amount"))),
             Seq(
               StateAssign(This, "balances", MapWrite(
-              StateRead(This,"balances"), MsgSender, Minus(MapRead(StateRead(This,"balances"),MsgSender), Var("amount")))),
+              StateRead(This,"balances"), MsgSender, AritOp(Minus(MapRead(StateRead(This,"balances"),MsgSender), Var("amount"))))),
               Transfer(MsgSender, Var("x"))
               ),
-            Val(Unit)
+            Val(VUnit)
     )
   } in 
   {
@@ -284,7 +284,7 @@ let setHealth = {
   rettype = Unit;
   args = [(Address, "donor"); (Bool, "isHealty")];
   body = Return (
-    If(Equals(MsgSender, StateRead(This, "doctor")),
+    If(BoolOp(Equals(MsgSender, StateRead(This, "doctor"))),
       (StateAssign(
       This, 
       "healty", 
@@ -299,7 +299,7 @@ let isHealty = {
   rettype = Unit;
   args = [(Address, "donor")];
   body = Return(
-    If(Equals(MsgSender, StateRead(This, "doctor")),
+    If(BoolOp(Equals(MsgSender, StateRead(This, "doctor"))),
       MapRead(StateRead(This, "healty"), Var("donor")),
       Revert
     )
@@ -311,8 +311,8 @@ let donate = {
   rettype = Unit;
   args = [(UInt, "amount")];
   body = Return(
-    Let(UInt, "donorBlod",Call(Val(VContract(MsgSender)),"getBlood",Val(VUInt(0)),[]),
-    If(Conj(MapRead(StateRead(This, "healty"), MsgSender), Conj(
+    Let(UInt, "donorBlod",Call(Val(VContract("asx")),"getBlood",Val(VUInt(0)),[]),
+    (If(Conj(MapRead(StateRead(This, "healty"), MsgSender), Conj(
         Greater(Var("donorBlood"),Val(VUInt(3000))), Greater(
           Minus(Var("donorBlood"), Var("amount")), Val(VUInt(0)))
       ))
@@ -320,7 +320,7 @@ let donate = {
       StateAssign(This, "blood", Plus(StateRead(This, "blood"), Var("amount"))),
       Val(VUnit)
     )
-  );
+  ));
 } in
 let getDoctor = {
   name = "getDoctor";
@@ -338,10 +338,10 @@ let getBlood = {
   name = "BloodBank";
   state = [(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")];
   constructor = ([(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")], Return 
-        Seq((StateAssign(This, "healty", Var("healty")),
+        (Seq((StateAssign(This, "healty", Var("healty")),
           Seq((StateAssign(This, "doctor", Var("doctor"))),
                StateAssign(This, "blood", Var("blood"))))
-  ));
+  )));
   functions = [setHealth; isHealty; donate; getDoctor; getBlood];
 }
 
