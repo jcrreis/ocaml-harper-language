@@ -147,11 +147,18 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
   | _ -> assert false *)
 
 let rec eval_expr (e: expr) (vars: (string, expr) Hashtbl.t): expr = match e with
-  | Var(x) -> Var(x)
+  | AritOp e1 -> Val(VUInt(0))
+  | BoolOp e1 -> Val(VUInt(0))
+  | Var(x) -> Hashtbl.find vars x
+  | Val e1 -> Val e1
+  | This -> Val(VAddress("0x23213"))
+  | MsgSender -> Val(VAddress("0x23213"))
+  | MsgValue -> Val(VUInt(1000))
   | _ -> assert false
 
 let rec free_variables (e: expr) : FV.t = match e with 
-  
+  | AritOp e1 -> FV.empty
+  | BoolOp e1 -> FV.empty
   | Val _ -> FV.empty
   | Var x -> FV.singleton x
   | This -> FV.singleton "this"
@@ -179,11 +186,12 @@ let rec free_variables (e: expr) : FV.t = match e with
   | MapRead (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
   | MapWrite (e1, e2, e3) -> FV.union (free_variables e1) (FV.union (free_variables e2) (free_variables e3))
   | Return e1 -> free_variables e1
-  | AritOp e1 -> FV.empty
-  | BoolOp e1 -> FV.empty
+
 
 
 let rec free_addr_names (e: expr) : FN.t = match e with 
+  | AritOp e1 -> FV.empty 
+  | BoolOp e1 -> FV.empty
   | Val (VAddress(a)) -> FN.singleton a 
   | Val (VContract(c)) -> FN.singleton c
   | Val _ -> FN.empty 
@@ -212,8 +220,7 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | MapRead (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | MapWrite (e1, e2, e3) -> FN.union (free_addr_names e1) (FV.union (free_addr_names e2) (free_addr_names e3))
   | Return e1 -> free_addr_names e1
-  | AritOp e1 -> FV.empty 
-  | BoolOp e1 -> FV.empty
+
 
   (* Blockchain maps cases? *)
 
