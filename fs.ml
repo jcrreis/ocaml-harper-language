@@ -235,6 +235,11 @@ let rec substitute (e: expr) (e': expr) (x: string) : expr = match e with
   | Address e1 -> Address (substitute e1 e' x)
   | StateRead (e1, s) -> StateRead (substitute e1 e' x, s)
   | Transfer (e1, e2) -> Transfer (substitute e1 e' x, substitute e2 e' x)
+  | Let (t_e, s, e1, e2) -> assert false 
+  | Assign (y, e1) -> Assign (y, substitute e1 e' x)
+  | MapRead (e1, e2) -> MapRead (substitute e1 e' x, substitute e2 e' x)
+  | MapWrite (e1, e2, e3) -> MapWrite (substitute e1 e' x, substitute e2 e' x, substitute e3 e' x)
+  | If (e1, e2, e3) -> If (substitute e1 e' x, substitute e2 e' x, substitute e3 e' x)
   | Revert -> e 
   | Return e1 -> e1
   | _ -> assert false
