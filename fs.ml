@@ -256,8 +256,9 @@ let rec substitute (e: expr) (e': expr) (x: string) : expr = match e with
   | If (e1, e2, e3) -> If (substitute e1 e' x, substitute e2 e' x, substitute e3 e' x)
   | Seq (e1, e2) -> Seq (substitute e1 e' x, substitute e2 e' x)
   | New (s, e1, le) -> assert false
+  | Cons (s, e1) -> Cons (s, substitute e1 e' x)
   | Revert -> e 
-  | Return e1 -> e1
+  | Return e1 -> Return e1
   | _ -> assert false
 
   (* Blockchain maps cases? *)
