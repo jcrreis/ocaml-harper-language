@@ -226,10 +226,20 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | MapWrite (e1, e2, e3) -> FN.union (free_addr_names e1) (FV.union (free_addr_names e2) (free_addr_names e3))
   | Return e1 -> free_addr_names e1
 
-
+  
 let rec substitute (e: expr) (e': expr) (x: string) : expr = match e with 
-  | AritOp a1 -> assert false 
-  | BoolOp b1 -> assert false 
+  | AritOp a1 -> begin match a1 with
+    | Num i -> AritOp (Num i)
+    | Plus (e1, e2) -> AritOp (Plus (substitute e1 e' x, substitute e2 e' x)) 
+    | Div (e1, e2) ->  AritOp (Div (substitute e1 e' x, substitute e2 e' x))
+    | Times (e1, e2) -> AritOp (Times (substitute e1 e' x, substitute e2 e' x))
+    | Minus (e1, e2) ->  AritOp (Minus (substitute e1 e' x, substitute e2 e' x))
+    | Exp (e1, e2) ->  AritOp (Exp (substitute e1 e' x, substitute e2 e' x))
+    | Mod (e1, e2) ->  AritOp (Mod (substitute e1 e' x, substitute e2 e' x))
+  end
+  | BoolOp b1 -> begin match b1 with 
+    | _ -> assert false
+  end 
   | Var y -> if x = y then e' else e
   | Val _ -> e
   | This -> if x = "this" then e' else e 
