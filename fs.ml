@@ -2,6 +2,7 @@
 (* msg.sender.transfer(x) to payable(msg.sender).transfer(x) *)
 module FV = Set.Make(String)
 module FN = Set.Make(String)
+module StateVars = Map.Make(String)
 
 type t_exp = 
   | C of string (* * hash_contract_code? *)
@@ -21,7 +22,8 @@ type values =
   | VAddress of string 
   | VUnit 
   | VContract of string
-  | VMapping of t_exp * t_exp
+  | VMapping 
+  (*c.f*)
 
 type arit_ops = 
   | Num of int
@@ -56,7 +58,7 @@ and expr =
   | Address of expr 
   | StateRead of expr * string
   | Transfer of expr * expr
-  | New of string * expr list
+  | New of string * expr * expr list
   | Cons of string * expr 
   | Seq of expr * expr
   | Let of t_exp *  string * expr * expr (* EM SOLIDITY NÃO EXISTE *) 
@@ -75,7 +77,7 @@ type fun_def = {
   name : string;
   rettype : t_exp;
   args : (t_exp * string) list;
-  body : expr
+  body : expr;
 }
 
 type contract_def = {
@@ -87,7 +89,9 @@ type contract_def = {
 
 let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64
 
-let blockchain: ((values * values), (string * values(*state vars*) * values)) Hashtbl.t = Hashtbl.create 64
+let blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t = Hashtbl.create 64
+
+type program = ((string, contract_def) Hashtbl.t * ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * expr)
 
 (* let rec eval_arit_expr (e: arit_ops) : arit_ops = match e with
   | Plus (e1, e2) -> begin match e1, e2 with
@@ -169,7 +173,7 @@ let rec free_variables (e: expr) : FV.t = match e with
   | Address e1 -> free_variables e1 
   | StateRead (e1, _) ->  free_variables e1 
   | Transfer (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
-  | New (_, le) -> begin let rec aux_fun set lst = match lst with 
+  | New (_, e1, le) -> begin let rec aux_fun set lst = match lst with 
     | [] -> set
     | x :: xs -> let fvsx = free_variables x in aux_fun (FV.union set fvsx) xs 
     in aux_fun FV.empty le
@@ -204,7 +208,7 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | Balance e1 -> free_addr_names e1
   | StateRead (e1, _) -> free_addr_names e1 
   | Transfer (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
-  | New (_, le) -> begin let rec aux_fun set lst = match lst with 
+  | New (_, e1, le) -> begin let rec aux_fun set lst = match lst with 
     | [] -> set
     | x :: xs -> let fnsx = free_addr_names x in aux_fun (FN.union set fnsx) xs 
     in aux_fun FN.empty le
@@ -240,6 +244,8 @@ let rec substitute (e: expr) (e': expr) (x: string) : expr = match e with
   | MapRead (e1, e2) -> MapRead (substitute e1 e' x, substitute e2 e' x)
   | MapWrite (e1, e2, e3) -> MapWrite (substitute e1 e' x, substitute e2 e' x, substitute e3 e' x)
   | If (e1, e2, e3) -> If (substitute e1 e' x, substitute e2 e' x, substitute e3 e' x)
+  | Seq (e1, e2) -> Seq (substitute e1 e' x, substitute e2 e' x)
+  | New (s, e1, le) -> assert false
   | Revert -> e 
   | Return e1 -> e1
   | _ -> assert false
@@ -396,7 +402,7 @@ let () =
   (* let e1 = (AritOp(Plus(Num(1),Times(Num(2),Num(3))))) in
   Format.eprintf "%s\n" (arit_op_to_string e1); *)
   let print_set s = FV.iter print_endline s in
-  let e2 = New("BloodBank", [StateRead(This, "blood"); MsgSender;Val (VAddress("0x01232"))]) in
+  let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This, "blood"); MsgSender;Val (VAddress("0x01232"))]) in
   let lst = free_addr_names e2 in 
   print_set lst;
 
