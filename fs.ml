@@ -8,7 +8,7 @@ type t_exp =
   | Bool
   | Unit 
   | UInt 
-  | Address
+  | Address 
   | Map of t_exp * t_exp
 
 type b_val =
@@ -21,6 +21,7 @@ type values =
   | VAddress of string 
   | VUnit 
   | VContract of string
+  | VMapping of t_exp * t_exp
 
 type arit_ops = 
   | Num of int
@@ -221,6 +222,22 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | MapWrite (e1, e2, e3) -> FN.union (free_addr_names e1) (FV.union (free_addr_names e2) (free_addr_names e3))
   | Return e1 -> free_addr_names e1
 
+
+let rec substitute (e: expr) (e': expr) (x: string) : expr = match e with 
+  | AritOp a1 -> assert false 
+  | BoolOp b1 -> assert false 
+  | Var y -> if x = y then e' else e
+  | Val _ -> e
+  | This -> if x = "this" then e' else e 
+  | MsgSender -> e
+  | MsgValue -> e 
+  | Balance e1 -> Balance (substitute e1 e' x)
+  | Address e1 -> Address (substitute e1 e' x)
+  | StateRead (e1, s) -> StateRead (substitute e1 e' x, s)
+  | Transfer (e1, e2) -> Transfer (substitute e1 e' x, substitute e2 e' x)
+  | Revert -> e 
+  | Return e1 -> e1
+  | _ -> assert false
 
   (* Blockchain maps cases? *)
 
