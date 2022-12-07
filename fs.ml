@@ -238,7 +238,16 @@ let rec substitute (e: expr) (e': expr) (x: string) : expr = match e with
     | Mod (e1, e2) ->  AritOp (Mod (substitute e1 e' x, substitute e2 e' x))
   end
   | BoolOp b1 -> begin match b1 with 
-    | _ -> assert false
+      | Bool b -> BoolOp (Bool b)
+      | Neg e1 -> BoolOp (Neg (substitute e1 e' x))
+      | Conj (e1, e2) -> BoolOp(Conj (substitute e1 e' x, substitute e2 e' x))
+      | Disj (e1, e2) -> BoolOp(Disj (substitute e1 e' x, substitute e2 e' x))
+      | Equals (e1, e2) -> BoolOp(Equals (substitute e1 e' x, substitute e2 e' x))
+      | Greater (e1, e2) -> BoolOp(Greater (substitute e1 e' x, substitute e2 e' x))
+      | GreaterOrEquals (e1, e2) -> BoolOp(GreaterOrEquals (substitute e1 e' x, substitute e2 e' x))
+      | Lesser (e1, e2) -> BoolOp(Lesser (substitute e1 e' x, substitute e2 e' x))
+      | LessOrEquals (e1, e2) -> BoolOp(LessOrEquals (substitute e1 e' x, substitute e2 e' x))
+      | Inequals (e1, e2) -> BoolOp(Inequals (substitute e1 e' x, substitute e2 e' x)) 
   end 
   | Var y -> if x = y then e' else e
   | Val _ -> e
