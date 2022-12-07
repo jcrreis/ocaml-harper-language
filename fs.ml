@@ -93,27 +93,27 @@ type program = ((string, contract_def) Hashtbl.t * ((values * values), (string *
 
 let rec eval_arit_expr (e: arit_ops) : expr = match e with
   | Plus (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt(n1 + n2))
+    | Val (VUInt n1), Val (VUInt n2) -> Val (VUInt(n1 + n2))
     | _ -> assert false
     end 
   | Div (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt (n1 / n2))
+    | Val (VUInt n1), Val (VUInt n2) -> Val (VUInt (n1 / n2))
     | _ -> assert false
     end
   | Times (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt (n1 * n2))
+    | Val (VUInt n1), Val (VUInt n2) -> Val (VUInt (n1 * n2))
     | _ -> assert false
     end
   | Minus (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt (n1 - n2))
+    | Val (VUInt n1), Val (VUInt n2) -> Val (VUInt (n1 - n2))
     | _ -> assert false
     end
   | Exp (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt ((float_of_int n1) ** (float_of_int n2) |> int_of_float))
+    | Val (VUInt n1), Val (VUInt n2) -> Val (VUInt ((float_of_int n1) ** (float_of_int n2) |> int_of_float))
     | _ -> assert false
     end
   | Mod (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt (n1 mod n2))
+    | Val (VUInt n1), Val (VUInt n2) -> Val (VUInt (n1 mod n2))
     | _ -> assert false
     end  
   
@@ -138,27 +138,27 @@ let rec eval_bool_expr (e: bool_ops) : expr = match e with
     | _ -> assert false
     end
   | Equals (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 == n2 then Val (VBool (True)) else Val (VBool (False))
+    | Val (VUInt n1), Val (VUInt n2) -> if n1 == n2 then Val (VBool (True)) else Val (VBool (False))
     | _ -> assert false
     end
   | Greater (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 > n2 then Val (VBool (True)) else Val (VBool (False))  
+    | Val (VUInt n1), Val (VUInt n2) -> if n1 > n2 then Val (VBool (True)) else Val (VBool (False))  
     | _ -> assert false
     end
   | GreaterOrEquals (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 >= n2 then Val (VBool (True)) else Val (VBool (False))  
+    | Val (VUInt n1), Val (VUInt n2) -> if n1 >= n2 then Val (VBool (True)) else Val (VBool (False))  
     | _ -> assert false
     end
   | Lesser (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 < n2 then Val (VBool (True)) else Val (VBool (False))  
+    | Val (VUInt n1), Val (VUInt n2) -> if n1 < n2 then Val (VBool (True)) else Val (VBool (False))  
     | _ -> assert false
     end
   | LessOrEquals (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 <= n2 then Val (VBool (True)) else Val (VBool (False))  
+    | Val (VUInt n1), Val (VUInt n2) -> if n1 <= n2 then Val (VBool (True)) else Val (VBool (False))  
     | _ -> assert false
     end
   | Inequals (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 != n2 then Val (VBool (True)) else Val (VBool (False)) 
+    | Val (VUInt n1), Val (VUInt n2) -> if n1 != n2 then Val (VBool (True)) else Val (VBool (False)) 
     | _ -> assert false
     end
   
@@ -199,7 +199,8 @@ let rec eval_expr (e: expr) (vars: (string, expr) Hashtbl.t): expr = match e wit
   | AritOp a1 -> begin match a1 with
     | Plus (e1, e2) -> begin match e1, e2 with
       | Val (VUInt(_)), Val (VUInt(_)) ->  eval_arit_expr a1 
-      | _ -> assert false
+      | Val (VUInt i), e2 -> eval_expr (AritOp(Plus (Val (VUInt i), eval_expr e2 vars))) vars
+      | e1, e2 -> eval_expr (AritOp(Plus (eval_expr e1 vars, e2))) vars
     end
     | Div (e1, e2) -> begin match e1, e2 with
       | Val (VUInt(_)), Val (VUInt(_)) ->  eval_arit_expr a1 
@@ -227,14 +228,30 @@ let rec eval_expr (e: expr) (vars: (string, expr) Hashtbl.t): expr = match e wit
       | Val (VBool(_)) -> eval_bool_expr b1 
       | _ -> eval_expr e1 vars
     end
-    | Conj (e1, e2) -> assert false
-    | Disj (e1, e2) -> assert false
-    | Equals (e1, e2) -> assert false 
-    | Greater (e1, e2) -> assert false 
-    | GreaterOrEquals (e1, e2) -> assert false
-    | Lesser (e1, e2) -> assert false
-    | LessOrEquals (e1, e2) -> assert false
-    | Inequals (e1, e2) -> assert false
+    | Conj (e1, e2) -> begin match e1, e2 with
+      _ -> assert false
+    end
+    | Disj (e1, e2) -> begin match e1, e2 with
+      _ -> assert false
+    end
+    | Equals (e1, e2) -> begin match e1, e2 with
+      _ -> assert false
+    end 
+    | Greater (e1, e2) -> begin match e1, e2 with
+      _ -> assert false
+    end 
+    | GreaterOrEquals (e1, e2) -> begin match e1, e2 with
+      _ -> assert false
+    end
+    | Lesser (e1, e2) -> begin match e1, e2 with
+      _ -> assert false
+    end
+    | LessOrEquals (e1, e2) -> begin match e1, e2 with
+      _ -> assert false
+    end
+    | Inequals (e1, e2) -> begin match e1, e2 with
+      _ -> assert false
+    end
   end
   | Var(x) -> Hashtbl.find vars x
   | Val e1 -> Val e1
@@ -510,7 +527,7 @@ let () =
   let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This, "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
   let lst = free_addr_names e2 in 
   print_set lst;
-  let e1 = (AritOp(Plus(Val (VUInt(1)),Val (VUInt(2))))) in 
+  let e1 = (AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(2)),(Val(VUInt(2)))))))) in 
   let e2 = eval_expr e1 vars in 
   match e2 with 
     | Val (VUInt(i)) -> Format.eprintf "%s\n" (Stdlib.string_of_int i); 
