@@ -26,7 +26,6 @@ type values =
   (*c.f*)
 
 type arit_ops = 
-  | Num of int
   | Plus of expr * expr 
   | Div of expr * expr 
   | Times of expr * expr
@@ -35,7 +34,6 @@ type arit_ops =
   | Mod of expr * expr 
 
 and bool_ops =
-  | Bool of b_val
   | Neg of expr
   | Conj of expr * expr
   | Disj of expr * expr
@@ -93,31 +91,79 @@ let blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hash
 
 type program = ((string, contract_def) Hashtbl.t * ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * expr)
 
-let rec eval_arit_expr (e: arit_ops) : arit_ops = match e with
+let rec eval_arit_expr (e: arit_ops) : expr = match e with
   | Plus (e1, e2) -> begin match e1, e2 with
-    | Num n1, Num n2 -> Num (n1 + n2)
-    | Num n1, e2 -> eval_arit_expr (Plus(Num(n1), eval_arit_expr e2))
-    | e1, e2 -> eval_arit_expr (Plus(eval_arit_expr e1, e2))
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt(n1 + n2))
+    | _ -> assert false
+    end 
+  | Div (e1, e2) -> begin match e1, e2 with
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt (n1 / n2))
+    | _ -> assert false
+    end
+  | Times (e1, e2) -> begin match e1, e2 with
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt (n1 * n2))
+    | _ -> assert false
+    end
+  | Minus (e1, e2) -> begin match e1, e2 with
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt (n1 - n2))
+    | _ -> assert false
+    end
+  | Exp (e1, e2) -> begin match e1, e2 with
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt ((float_of_int n1) ** (float_of_int n2) |> int_of_float))
+    | _ -> assert false
+    end
+  | Mod (e1, e2) -> begin match e1, e2 with
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> Val (VUInt (n1 mod n2))
+    | _ -> assert false
     end  
-  | _ -> assert false
   
+let rec eval_bool_expr (e: bool_ops) : expr = match e with 
+  | Neg b1 -> begin match b1 with 
+    | Val (VBool (True)) -> Val (VBool (False))
+    | Val (VBool (False)) -> Val (VBool (True))
+    | _ -> assert false
+    end
+  | Conj (e1, e2) -> begin match e1, e2 with
+    | Val (VBool (True)), Val (VBool (True)) -> Val (VBool (True))
+    | Val (VBool (True)),  Val (VBool (False)) -> Val (VBool (False))
+    | Val (VBool (False)), Val (VBool (True)) -> Val (VBool (False))
+    | Val (VBool (False)), Val (VBool (False)) -> Val (VBool (False))   
+    | _ -> assert false
+    end
+  | Disj (e1, e2) -> begin match e1, e2 with
+    | Val (VBool (True)), Val (VBool (True)) -> Val (VBool (True))
+    | Val (VBool (True)),  Val (VBool (False)) -> Val (VBool (True))
+    | Val (VBool (False)), Val (VBool (True)) -> Val (VBool (True))
+    | Val (VBool (False)), Val (VBool (False)) -> Val (VBool (False))
+    | _ -> assert false
+    end
+  | Equals (e1, e2) -> begin match e1, e2 with
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 == n2 then Val (VBool (True)) else Val (VBool (False))
+    | _ -> assert false
+    end
+  | Greater (e1, e2) -> begin match e1, e2 with
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 > n2 then Val (VBool (True)) else Val (VBool (False))  
+    | _ -> assert false
+    end
+  | GreaterOrEquals (e1, e2) -> begin match e1, e2 with
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 >= n2 then Val (VBool (True)) else Val (VBool (False))  
+    | _ -> assert false
+    end
+  | Lesser (e1, e2) -> begin match e1, e2 with
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 < n2 then Val (VBool (True)) else Val (VBool (False))  
+    | _ -> assert false
+    end
+  | LessOrEquals (e1, e2) -> begin match e1, e2 with
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 <= n2 then Val (VBool (True)) else Val (VBool (False))  
+    | _ -> assert false
+    end
+  | Inequals (e1, e2) -> begin match e1, e2 with
+    | Val (VUInt(n1)), Val (VUInt(n2)) -> if n1 != n2 then Val (VBool (True)) else Val (VBool (False)) 
+    | _ -> assert false
+    end
+  
+
 (*
-let rec eval_bool_expr (e: bool_ops) : bool_ops = match e with
-  | Neg (b1) -> begin match b1 with 
-    | Bool(False) -> Bool(True)
-    | Bool(True) -> Bool(False)
-    end
-  | Conj (b1, b2) -> begin match b1, b2 with
-    | Bool(False), _ -> Bool(False) 
-    | _, Bool(False) -> Bool(False)
-    | Bool(True), Bool(True) -> Bool(True)
-    end  
-  | Disj (b1, b2) -> begin match b1, b2 with
-    | Bool(True), _ -> Bool(True)
-    | _, Bool(True) -> Bool(True)
-    | Bool(False), Bool(False) -> Bool(False) 
-    end
-  | _ -> assert false
 
 let from_arit_ops_to_expr (e: arit_ops) : expr = match e with 
   | Num (i) -> Val(VUInt(i))
@@ -135,9 +181,6 @@ let from_expr_to_bool_ops (e: expr) : bool_ops = match e with
   | Val (VBool(bval)) -> Bool (bval)
   | _ -> assert false
 
-
-
-
 let rec expr_to_string (e: expr) : string = match e with
   | _ -> assert false
 
@@ -153,8 +196,46 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
   | _ -> assert false *)
 
 let rec eval_expr (e: expr) (vars: (string, expr) Hashtbl.t): expr = match e with
-  | AritOp e1 -> Val(VUInt(0))
-  | BoolOp e1 -> Val(VUInt(0))
+  | AritOp a1 -> begin match a1 with
+    | Plus (e1, e2) -> begin match e1, e2 with
+      | Val (VUInt(_)), Val (VUInt(_)) ->  eval_arit_expr a1 
+      | _ -> assert false
+    end
+    | Div (e1, e2) -> begin match e1, e2 with
+      | Val (VUInt(_)), Val (VUInt(_)) ->  eval_arit_expr a1 
+      | _ -> assert false
+    end
+    | Times (e1, e2) -> begin match e1, e2 with
+      | Val (VUInt(_)), Val (VUInt(_)) ->  eval_arit_expr a1 
+      | _ -> assert false
+    end
+    | Minus (e1, e2) -> begin match e1, e2 with
+      | Val (VUInt(_)), Val (VUInt(_)) ->  eval_arit_expr a1 
+      | _ -> assert false
+    end
+    | Exp (e1, e2) -> begin match e1, e2 with
+      | Val (VUInt(_)), Val (VUInt(_)) ->  eval_arit_expr a1 
+      | _ -> assert false
+    end
+    | Mod (e1, e2) -> begin match e1, e2 with
+      | Val (VUInt(_)), Val (VUInt(_)) ->  eval_arit_expr a1 
+      | _ -> assert false
+    end
+  end
+  | BoolOp b1 -> begin match b1 with
+    | Neg e1 -> begin match e1 with
+      | Val (VBool(_)) -> eval_bool_expr b1 
+      | _ -> eval_expr e1 vars
+    end
+    | Conj (e1, e2) -> assert false
+    | Disj (e1, e2) -> assert false
+    | Equals (e1, e2) -> assert false 
+    | Greater (e1, e2) -> assert false 
+    | GreaterOrEquals (e1, e2) -> assert false
+    | Lesser (e1, e2) -> assert false
+    | LessOrEquals (e1, e2) -> assert false
+    | Inequals (e1, e2) -> assert false
+  end
   | Var(x) -> Hashtbl.find vars x
   | Val e1 -> Val e1
   | This -> Val(VAddress("0x23213"))
@@ -233,7 +314,6 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   
 let rec substitute (e: expr) (e': expr) (x: string) : expr = match e with 
   | AritOp a1 -> begin match a1 with
-    | Num i -> AritOp (Num i)
     | Plus (e1, e2) -> AritOp (Plus (substitute e1 e' x, substitute e2 e' x)) 
     | Div (e1, e2) ->  AritOp (Div (substitute e1 e' x, substitute e2 e' x))
     | Times (e1, e2) -> AritOp (Times (substitute e1 e' x, substitute e2 e' x))
@@ -242,7 +322,6 @@ let rec substitute (e: expr) (e': expr) (x: string) : expr = match e with
     | Mod (e1, e2) ->  AritOp (Mod (substitute e1 e' x, substitute e2 e' x))
   end
   | BoolOp b1 -> begin match b1 with 
-      | Bool b -> BoolOp (Bool b)
       | Neg e1 -> BoolOp (Neg (substitute e1 e' x))
       | Conj (e1, e2) -> BoolOp(Conj (substitute e1 e' x, substitute e2 e' x))
       | Disj (e1, e2) -> BoolOp(Disj (substitute e1 e' x, substitute e2 e' x))
@@ -425,10 +504,18 @@ let () =
   (* let x: int = 10 ; x + x ;*)
   (* let e1 = (AritOp(Plus(Num(1),Times(Num(2),Num(3))))) in
   Format.eprintf "%s\n" (arit_op_to_string e1); *)
+  
+  let vars: (string, expr) Hashtbl.t = Hashtbl.create 64 in 
   let print_set s = FV.iter print_endline s in
   let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This, "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
   let lst = free_addr_names e2 in 
   print_set lst;
+  let e1 = (AritOp(Plus(Val (VUInt(1)),Val (VUInt(2))))) in 
+  let e2 = eval_expr e1 vars in 
+  match e2 with 
+    | Val (VUInt(i)) -> Format.eprintf "%s\n" (Stdlib.string_of_int i); 
+    | _ -> assert false
+  
 
 
 
