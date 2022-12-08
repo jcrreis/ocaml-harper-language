@@ -85,9 +85,6 @@ type contract_def = {
   functions : fun_def list;
 }
 
-let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64
-
-let blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t = Hashtbl.create 64
 
 type program = 
   | Program of ((string, contract_def) Hashtbl.t * ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * expr)
@@ -277,7 +274,6 @@ let rec eval_expr (e: expr) (vars: (string, expr) Hashtbl.t) : expr = match e wi
   | MapWrite (e1, e2, e3) -> assert false 
   | Return e1 -> assert false 
 
-let stringset_of_list li : FV.t = List.fold_left (fun set elem -> FV.add elem set) FV.empty li
 
 let rec union_list_set (lst: FV.t list) (set: FV.t): FV.t = match lst with 
     | [] -> set 
@@ -424,6 +420,22 @@ let rec substitute (e: expr) (e': expr) (x: string) : expr =
   | _ -> assert false
 
   (* Blockchain maps cases? *)
+
+(*sv*)
+let state_vars_contract (contract_name: string) (ct: (string, contract_def) Hashtbl.t) : (t_exp * string) list =
+  let contract : contract_def = Hashtbl.find ct contract_name in contract.state
+
+(* VER ESTA FUNÇÃO fbody ----> necessário para semântica (FUNÇÃO AUXILIAR)*)
+let function_body (contract_name: string) (function_name: string) (ct: (string, contract_def) Hashtbl.t) : ((t_exp * string) list) * expr =
+  let contract : contract_def = Hashtbl.find ct contract_name in 
+  let functions_def : fun_def list = contract.functions in
+  let rec search_function (fname: string) (lst: fun_def list) : ((t_exp * string) list) * expr =
+  begin match functions_def with
+    | [] -> ([], Val(VUnit))
+    | x :: xs -> if x.name == fname then (x.args, x.body) else search_function fname xs
+  end
+  in search_function function_name functions_def 
+
 
 let bank_contract unit : contract_def = 
   let deposit = {
@@ -574,15 +586,20 @@ let () =
   (* let x: int = 10 ; x + x ;*)
   (* let e1 = (AritOp(Plus(Num(1),Times(Num(2),Num(3))))) in
   Format.eprintf "%s\n" (arit_op_to_string e1); *)
-  
+  let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64 in 
+  let blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t = Hashtbl.create 64 in
+  let sigma: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t = Hashtbl.create 64 in
+  let conf: (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * 
+  ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * expr) = (blockchain, sigma, Val(VUInt(0))) in
   let vars: (string, expr) Hashtbl.t = Hashtbl.create 64 in 
+  let p = Program(ct, blockchain, Val(VUInt(0))) in
+  
   let print_set s = FV.iter print_endline s in
   let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This, "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
   let lst = free_addr_names e2 in 
   print_set lst;
   let e1 = (AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(10)),(Val(VUInt(2)))))))) in 
   let e2 = eval_expr e1 vars in 
-  let p = Program(ct, blockchain, Val(VUInt(0))) in
   match e2 with 
     | Val (VUInt(i)) -> Format.eprintf "%s\n" (Stdlib.string_of_int i); 
     | _ -> assert false
