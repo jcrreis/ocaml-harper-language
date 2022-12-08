@@ -89,7 +89,8 @@ let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64
 
 let blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t = Hashtbl.create 64
 
-type program = ((string, contract_def) Hashtbl.t * ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * expr)
+type program = 
+  | Program of ((string, contract_def) Hashtbl.t * ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * expr)
 
 let rec eval_arit_expr (e: arit_ops) : expr = match e with
   | Plus (e1, e2) -> begin match e1, e2 with
@@ -278,7 +279,12 @@ let rec eval_expr (e: expr) (vars: (string, expr) Hashtbl.t) : expr = match e wi
 
 let stringset_of_list li : FV.t = List.fold_left (fun set elem -> FV.add elem set) FV.empty li
 
-let rec free_variables (e: expr) : FV.t = match e with 
+let rec union_list_set (lst: FV.t list) (set: FV.t): FV.t = match lst with 
+    | [] -> set 
+    | x :: xs -> union_list_set xs (FV.union set x)
+
+let rec free_variables (e: expr) : FV.t = 
+  match e with 
   | AritOp a1 -> begin match a1 with
     | Plus (e1, e2) -> FV.union (free_variables e1) (free_variables e2) 
     | Div (e1, e2) -> FV.union (free_variables e1) (free_variables e2) 
@@ -307,12 +313,8 @@ let rec free_variables (e: expr) : FV.t = match e with
   | Address e1 -> free_variables e1 
   | StateRead (e1, _) ->  free_variables e1 
   | Transfer (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
-  | New (_, e1, le) -> begin let rec aux_fun set lst = match lst with 
-    | [] -> set
-    | x :: xs -> let fvsx = free_variables x in aux_fun (FV.union set fvsx) xs 
-    in aux_fun FV.empty le
-    end 
-  (* | New (_, e1, le) -> List.map free_variables le *) (*retorna lista de sets*)
+  | New (_, e1, le) -> let set_list = List.map free_variables le in 
+    FV.union (free_variables e1) (union_list_set set_list FV.empty)
   | Cons (_, e1) -> free_variables e1
   | Seq (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
   | Let(_, x, e1, e2) -> FV.union (free_variables e1) ((FV.filter (fun (x') -> x <> x') (free_variables e2)))
@@ -348,8 +350,8 @@ let rec free_addr_names (e: expr) : FN.t = match e with
     | LessOrEquals (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
     | Inequals (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   end
-  | Val (VAddress(a)) -> FN.singleton a 
-  | Val (VContract(c)) -> FN.singleton c
+  | Val (VAddress a) -> FN.singleton a 
+  | Val (VContract c) -> FN.singleton c
   | Val _ -> FN.empty 
   | This -> FN.empty 
   | Var x -> FN.empty 
@@ -359,11 +361,8 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   | Balance e1 -> free_addr_names e1
   | StateRead (e1, _) -> free_addr_names e1 
   | Transfer (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
-  | New (_, e1, le) -> begin let rec aux_fun set lst = match lst with 
-    | [] -> set
-    | x :: xs -> let fnsx = free_addr_names x in aux_fun (FN.union set fnsx) xs 
-    in aux_fun FN.empty le
-    end 
+  | New (_, e1, le) -> let set_list = List.map free_addr_names le in 
+    FN.union (free_addr_names e1) (union_list_set set_list FV.empty)
   | Cons (_, e1) -> free_addr_names e1
   | Seq (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   | Let(_, _, e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
@@ -379,7 +378,9 @@ let rec free_addr_names (e: expr) : FN.t = match e with
   (* | _ -> assert false *)
 
   
-let rec substitute (e: expr) (e': expr) (x: string) : expr = match e with 
+let rec substitute (e: expr) (e': expr) (x: string) : expr = 
+  let f lst = substitute lst e' x in
+  match e with 
   | AritOp a1 -> begin match a1 with
     | Plus (e1, e2) -> AritOp (Plus (substitute e1 e' x, substitute e2 e' x)) 
     | Div (e1, e2) ->  AritOp (Div (substitute e1 e' x, substitute e2 e' x))
@@ -408,13 +409,15 @@ let rec substitute (e: expr) (e': expr) (x: string) : expr = match e with
   | Address e1 -> Address (substitute e1 e' x)
   | StateRead (e1, s) -> StateRead (substitute e1 e' x, s)
   | Transfer (e1, e2) -> Transfer (substitute e1 e' x, substitute e2 e' x)
-  | Let (t_e, s, e1, e2) -> assert false 
+  | New (s, e1, le) -> New (s, substitute e1 e' x, List.map f le)
+  | Seq (e1, e2) -> Seq (substitute e1 e' x, substitute e2 e' x)
+  | Let (t_e, s, e1, e2) -> assert false
   | Assign (y, e1) -> Assign (y, substitute e1 e' x)
   | MapRead (e1, e2) -> MapRead (substitute e1 e' x, substitute e2 e' x)
   | MapWrite (e1, e2, e3) -> MapWrite (substitute e1 e' x, substitute e2 e' x, substitute e3 e' x)
   | If (e1, e2, e3) -> If (substitute e1 e' x, substitute e2 e' x, substitute e3 e' x)
-  | Seq (e1, e2) -> Seq (substitute e1 e' x, substitute e2 e' x)
-  | New (s, e1, le) -> assert false
+  | Call (e1, s, e2, le) -> Call (substitute e1 e' x, s, substitute e2 e' x, List.map f le)
+  | CallVariant (e1, s, e2, e3, le) ->  CallVariant (substitute e1 e' x, s, substitute e2 e' x, substitute e3 e' x, List.map f le)
   | Cons (s, e1) -> Cons (s, substitute e1 e' x)
   | Revert -> e 
   | Return e1 -> Return e1
@@ -577,15 +580,11 @@ let () =
   let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This, "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
   let lst = free_addr_names e2 in 
   print_set lst;
-  let e1 = (AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(2)),(Val(VUInt(2)))))))) in 
+  let e1 = (AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(10)),(Val(VUInt(2)))))))) in 
   let e2 = eval_expr e1 vars in 
+  let p = Program(ct, blockchain, Val(VUInt(0))) in
   match e2 with 
     | Val (VUInt(i)) -> Format.eprintf "%s\n" (Stdlib.string_of_int i); 
     | _ -> assert false
-  
-
-
-
-
 
 
