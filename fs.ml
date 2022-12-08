@@ -279,8 +279,25 @@ let rec eval_expr (e: expr) (vars: (string, expr) Hashtbl.t) : expr = match e wi
 let stringset_of_list li : FV.t = List.fold_left (fun set elem -> FV.add elem set) FV.empty li
 
 let rec free_variables (e: expr) : FV.t = match e with 
-  | AritOp e1 -> FV.empty
-  | BoolOp e1 -> FV.empty
+  | AritOp a1 -> begin match a1 with
+    | Plus (e1, e2) -> FV.union (free_variables e1) (free_variables e2) 
+    | Div (e1, e2) -> FV.union (free_variables e1) (free_variables e2) 
+    | Times (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
+    | Minus (e1, e2) -> FV.union (free_variables e1) (free_variables e2) 
+    | Exp (e1, e2) -> FV.union (free_variables e1) (free_variables e2) 
+    | Mod (e1, e2) -> FV.union (free_variables e1) (free_variables e2)  
+  end
+  | BoolOp b1 -> begin match b1 with
+    | Neg e1 -> free_variables e1
+    | Conj (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
+    | Disj (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
+    | Equals (e1, e2) -> FV.union (free_variables e1) (free_variables e2) 
+    | Greater (e1, e2) -> FV.union (free_variables e1) (free_variables e2) 
+    | GreaterOrEquals (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
+    | Lesser (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
+    | LessOrEquals (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
+    | Inequals (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
+  end
   | Val _ -> FV.empty
   | Var x -> FV.singleton x
   | This -> FV.singleton "this"
@@ -312,8 +329,25 @@ let rec free_variables (e: expr) : FV.t = match e with
 
 
 let rec free_addr_names (e: expr) : FN.t = match e with 
-  | AritOp e1 -> FV.empty 
-  | BoolOp e1 -> FV.empty
+  | AritOp a1 -> begin match a1 with
+    | Plus (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2) 
+    | Div (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2) 
+    | Times (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+    | Minus (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2) 
+    | Exp (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2) 
+    | Mod (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)  
+  end
+  | BoolOp b1 -> begin match b1 with
+    | Neg e1 -> free_variables e1
+    | Conj (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+    | Disj (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+    | Equals (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2) 
+    | Greater (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2) 
+    | GreaterOrEquals (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+    | Lesser (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+    | LessOrEquals (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+    | Inequals (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
+  end
   | Val (VAddress(a)) -> FN.singleton a 
   | Val (VContract(c)) -> FN.singleton c
   | Val _ -> FN.empty 
