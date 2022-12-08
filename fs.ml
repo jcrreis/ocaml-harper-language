@@ -195,7 +195,7 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
   | Bool(False) -> "false"
   | _ -> assert false *)
 
-let rec eval_expr (e: expr) (vars: (string, expr) Hashtbl.t): expr = match e with
+let rec eval_expr (e: expr) (vars: (string, expr) Hashtbl.t) : expr = match e with
   | AritOp a1 -> begin match a1 with
     | Plus (e1, e2) -> begin match e1, e2 with
       | Val (VUInt(_)), Val (VUInt(_)) ->  eval_arit_expr a1 
@@ -258,7 +258,23 @@ let rec eval_expr (e: expr) (vars: (string, expr) Hashtbl.t): expr = match e wit
   | This -> Val(VAddress("0x23213"))
   | MsgSender -> Val(VAddress("0x23213"))
   | MsgValue -> Val(VUInt(1000))
-  | _ -> assert false
+  | Balance e1 -> assert false
+  | Address e1 -> assert false
+  | StateRead (e1, _) ->  assert false 
+  | Transfer (e1, e2) -> assert false 
+  | New (_, e1, le) -> assert false 
+  | Cons (_, e1) -> assert false 
+  | Seq (e1, e2) -> assert false 
+  | Let(_, x, e1, e2) -> assert false 
+  | Assign (x, e1) -> assert false 
+  | If (e1, e2, e3) -> assert false 
+  | Call (e1, _, e2, le) -> assert false 
+  | CallVariant (e1, _, e2, e3, le) -> assert false 
+  | Revert -> assert false 
+  | StateAssign (e1, _ , e2) -> assert false 
+  | MapRead (e1, e2) -> assert false 
+  | MapWrite (e1, e2, e3) -> assert false 
+  | Return e1 -> assert false 
 
 let stringset_of_list li : FV.t = List.fold_left (fun set elem -> FV.add elem set) FV.empty li
 
@@ -279,7 +295,7 @@ let rec free_variables (e: expr) : FV.t = match e with
     | x :: xs -> let fvsx = free_variables x in aux_fun (FV.union set fvsx) xs 
     in aux_fun FV.empty le
     end 
-  (* | New (_, e1, le) -> List.map free_variables le *)
+  (* | New (_, e1, le) -> List.map free_variables le *) (*retorna lista de sets*)
   | Cons (_, e1) -> free_variables e1
   | Seq (e1, e2) -> FV.union (free_variables e1) (free_variables e2)
   | Let(_, x, e1, e2) -> FV.union (free_variables e1) ((FV.filter (fun (x') -> x <> x') (free_variables e2)))
