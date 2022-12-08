@@ -136,7 +136,7 @@ let rec eval_bool_expr (e: bool_ops) : expr = match e with
     | _ -> assert false
     end
   | Equals (e1, e2) -> begin match e1, e2 with
-    | Val (VUInt n1), Val (VUInt n2) -> if n1 == n2 then Val (VBool (True)) else Val (VBool (False))
+    | Val (VUInt n1), Val (VUInt n2) -> if n1 = n2 then Val (VBool (True)) else Val (VBool (False))
     | _ -> assert false
     end
   | Greater (e1, e2) -> begin match e1, e2 with
@@ -429,11 +429,12 @@ let state_vars_contract (contract_name: string) (ct: (string, contract_def) Hash
 let function_body (contract_name: string) (function_name: string) (ct: (string, contract_def) Hashtbl.t) : ((t_exp * string) list) * expr =
   let contract : contract_def = Hashtbl.find ct contract_name in 
   let functions_def : fun_def list = contract.functions in
+  Format.eprintf "%d\n" (List.length functions_def); 
   let rec search_function (fname: string) (lst: fun_def list) : ((t_exp * string) list) * expr =
-  begin match functions_def with
-    | [] -> ([], Val(VUnit))
-    | x :: xs -> if x.name == fname then (x.args, x.body) else search_function fname xs
-  end
+    begin match lst with
+      | [] -> ([], Val(VUnit))
+      | x :: xs -> if x.name = fname then (x.args, x.body) else search_function fname xs
+    end
   in search_function function_name functions_def 
 
 
@@ -582,6 +583,13 @@ let getBlood = {
   functions = [donate; getBank; getBlood];
 }
 
+let rec print_tuples lst =
+  match lst with
+    | [] -> ()
+    | (_, s) :: rest ->
+      Printf.printf "%s; " s;
+      print_tuples rest
+
 let () =
   (* let x: int = 10 ; x + x ;*)
   (* let e1 = (AritOp(Plus(Num(1),Times(Num(2),Num(3))))) in
@@ -600,8 +608,21 @@ let () =
   print_set lst;
   let e1 = (AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(10)),(Val(VUInt(2)))))))) in 
   let e2 = eval_expr e1 vars in 
-  match e2 with 
+  Hashtbl.add ct "Bank" (bank_contract());
+  Hashtbl.add ct "BloodBank" (blood_bank_contract());
+  Hashtbl.add ct "Donor" (donor_contract());
+  let res = state_vars_contract "Bank" ct in
+  let res2 = state_vars_contract "BloodBank" ct in
+  let res3 = state_vars_contract "Donor" ct in
+  (* let res4 = state_vars_contract "Error" ct in  *)
+  print_tuples res;
+  print_tuples res2;
+  print_tuples res3;
+  (* print_tuples res4; *)
+  let (res1, _) = function_body "Bank" "transfer" ct in 
+  print_tuples res1
+  (* match e2 with 
     | Val (VUInt(i)) -> Format.eprintf "%s\n" (Stdlib.string_of_int i); 
-    | _ -> assert false
+    | _ -> assert false *)
 
 
