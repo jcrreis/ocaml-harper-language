@@ -429,14 +429,12 @@ let state_vars_contract (contract_name: string) (ct: (string, contract_def) Hash
 let function_body (contract_name: string) (function_name: string) (ct: (string, contract_def) Hashtbl.t) : ((t_exp * string) list) * expr =
   let contract : contract_def = Hashtbl.find ct contract_name in 
   let functions_def : fun_def list = contract.functions in
-  Format.eprintf "%d\n" (List.length functions_def); 
-  let rec search_function (fname: string) (lst: fun_def list) : ((t_exp * string) list) * expr =
-    begin match lst with
-      | [] -> ([], Val(VUnit))
-      | x :: xs -> if x.name = fname then (x.args, x.body) else search_function fname xs
-    end
-  in search_function function_name functions_def 
+  let f = List.find (fun (x : fun_def) -> x.name = function_name) (functions_def) in (f.args, f.body)
 
+let function_type (contract_name: string) (function_name: string) (ct: (string, contract_def) Hashtbl.t) : t_exp =
+  let contract : contract_def = Hashtbl.find ct contract_name in 
+  let functions_def : fun_def list = contract.functions in
+  let f = List.find (fun (x : fun_def) -> x.name = function_name) (functions_def) in f.rettype
 
 let bank_contract unit : contract_def = 
   let deposit = {
@@ -506,8 +504,8 @@ let setHealth = {
   );
 } in 
 let isHealty = {
-  name = "setHealth";
-  rettype = Unit;
+  name = "isHealty";
+  rettype = Bool;
   args = [(Address, "donor")];
   body = Return(
     If(BoolOp(Equals(MsgSender, StateRead(This, "doctor"))),
@@ -592,12 +590,14 @@ let rec t_exp_to_string (t_e: t_exp) : string = match t_e with
   | Map (t_e1, t_e2)-> "mapping(" ^ t_exp_to_string t_e1 ^ " => " ^ t_exp_to_string t_e2 ^ ")"
 
 let rec print_tuples lst =
-  match lst with
+  begin match lst with
     | [] -> ()
     | (t_e, s) :: rest ->
       let s1 = t_exp_to_string t_e in
-      Printf.printf "%s : %s; " s1 s;
+      Printf.printf "%s : %s;\n" s1 s;
       print_tuples rest
+  end
+
 
 let () =
   (* let x: int = 10 ; x + x ;*)
@@ -629,7 +629,15 @@ let () =
   print_tuples res3;
   (* print_tuples res4; *)
   let (res1, _) = function_body "Bank" "transfer" ct in 
-  print_tuples res1
+  print_tuples res1;
+  let res = function_type "Bank" "transfer" ct in 
+  print_tuples [(res, "transfer fun return_type")];
+  let res = function_type "BloodBank" "isHealty" ct in 
+  print_tuples [(res, "isHealty fun return_type")]
+  
+
+
+
   (* match e2 with 
     | Val (VUInt(i)) -> Format.eprintf "%s\n" (Stdlib.string_of_int i); 
     | _ -> assert false *)
