@@ -263,10 +263,10 @@ let rec eval_expr
     | MsgValue -> Val(VUInt(1000))
     | Balance e1 -> assert false
     | Address e1 -> assert false
-    | StateRead (e1, _) ->  assert false 
+    | StateRead (e1, s) ->  assert false 
     | Transfer (e1, e2) -> assert false 
-    | New (_, e1, le) -> assert false 
-    | Cons (_, e1) -> assert false 
+    | New (s, e1, le) -> assert false 
+    | Cons (s, e1) -> assert false 
     | Seq (e1, e2) -> assert false 
     | Let(_, x, e1, e2) -> Hashtbl.add vars x (eval_expr e1 vars conf) ; eval_expr e2 vars conf
     | Assign (x, e1) -> Hashtbl.add vars x (eval_expr e1 vars conf) ; Val(VUnit)
@@ -277,10 +277,10 @@ let rec eval_expr
         end
       | _ -> assert false
       end
-    | Call (e1, _, e2, le) -> assert false 
-    | CallVariant (e1, _, e2, e3, le) -> assert false 
+    | Call (e1, s, e2, le) -> assert false 
+    | CallVariant (e1, s, e2, e3, le) -> assert false 
     | Revert -> assert false 
-    | StateAssign (e1, _ , e2) -> assert false 
+    | StateAssign (e1, s , e2) -> assert false 
     | MapRead (e1, e2) -> assert false 
     | MapWrite (e1, e2, e3) -> assert false 
     | Return e1 -> assert false 
