@@ -426,13 +426,18 @@ let state_vars_contract (contract_name: string) (ct: (string, contract_def) Hash
   let contract : contract_def = Hashtbl.find ct contract_name in contract.state
 
 (* VER ESTA FUNÇÃO fbody ----> necessário para semântica (FUNÇÃO AUXILIAR)*)
-let function_body (contract_name: string) (function_name: string) (values: expr list) (ct: (string, contract_def) Hashtbl.t) : ((t_exp * string) list) * expr =
-  let contract : contract_def = Hashtbl.find ct contract_name in 
-  let functions_def : fun_def list = contract.functions in
-  try
-    let f = List.find (fun (x : fun_def) -> x.name = function_name) (functions_def) in 
-    if List.length values = List.length f.args then (f.args, f.body) else ([], Return (Revert))
-  with Not_found -> ([], Return (Revert))
+let function_body 
+  (contract_name: string) 
+  (function_name: string) 
+  (values: expr list) 
+  (ct: (string, contract_def) Hashtbl.t) : 
+  ((t_exp * string) list) * expr =
+    let contract : contract_def = Hashtbl.find ct contract_name in 
+    let functions_def : fun_def list = contract.functions in
+    try
+      let f = List.find (fun (x : fun_def) -> x.name = function_name) (functions_def) in 
+      if List.length values = List.length f.args then (f.args, f.body) else ([], Return (Revert))
+    with Not_found -> ([], Return (Revert))
 
 let function_type (contract_name: string) (function_name: string) (ct: (string, contract_def) Hashtbl.t) : t_exp =
   let contract : contract_def = Hashtbl.find ct contract_name in 
@@ -450,7 +455,7 @@ let update_balance
     Hashtbl.replace blockchain (address(*Aqui deve se usar o construtor contrato*), address) (c, sv, new_balance)
 
 (*Top(σ)*)
-let top (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) : values =
+let top (sigma: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) : values =
   assert false
   
 
