@@ -434,12 +434,25 @@ let function_body (contract_name: string) (function_name: string) (values: expr 
     if List.length values = List.length f.args then (f.args, f.body) else ([], Return (Revert))
   with Not_found -> ([], Return (Revert))
 
-  
-
 let function_type (contract_name: string) (function_name: string) (ct: (string, contract_def) Hashtbl.t) : t_exp =
   let contract : contract_def = Hashtbl.find ct contract_name in 
   let functions_def : fun_def list = contract.functions in
   let f = List.find (fun (x : fun_def) -> x.name = function_name) (functions_def) in f.rettype
+  
+  (*uptbal(β, a, n)*)
+let update_balance 
+  (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) 
+  (address: values) 
+  (value: values) 
+  (vars: (string, expr) Hashtbl.t) : unit =
+    let (c, sv, old_balance) = Hashtbl.find blockchain (address, address) in
+    let Val(new_balance) = eval_expr (AritOp (Plus (Val(old_balance), Val(value)))) vars in
+    Hashtbl.replace blockchain (address(*Aqui deve se usar o construtor contrato*), address) (c, sv, new_balance)
+
+(*Top(σ)*)
+let top (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) : values =
+  assert false
+  
 
 let bank_contract unit : contract_def = 
   let deposit = {
@@ -611,8 +624,10 @@ let () =
   let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64 in 
   let blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t = Hashtbl.create 64 in
   let sigma: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t = Hashtbl.create 64 in
-  let conf: (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * 
-  ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * expr) = (blockchain, sigma, Val(VUInt(0))) in
+  let conf: 
+    (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * 
+    ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t 
+    * expr) = (blockchain, sigma, Val(VUInt(0))) in
   let vars: (string, expr) Hashtbl.t = Hashtbl.create 64 in 
   let p = Program(ct, blockchain, Val(VUInt(0))) in
   
