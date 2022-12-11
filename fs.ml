@@ -455,9 +455,13 @@ let update_balance
     Hashtbl.replace blockchain (address(*Aqui deve se usar o construtor contrato*), address) (c, sv, new_balance)
 
 (*Top(σ)*)
-let top (sigma: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) : values =
-  assert false
-  
+(*if sigma = sigma' * a' then a' else if sigma = blockchain then Val(VUnit) *)
+
+let top 
+  (sigma: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) 
+  (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) : values =
+  if sigma = blockchain then VUnit else VAddress("0x0xxsd")
+
 
 let bank_contract unit : contract_def = 
   let deposit = {
