@@ -583,11 +583,20 @@ let getBlood = {
   functions = [donate; getBank; getBlood];
 }
 
+let rec t_exp_to_string (t_e: t_exp) : string = match t_e with
+  | C s -> "contract(" ^ s ^ ")"
+  | Bool -> "boolean"
+  | Unit -> "unit"
+  | UInt -> "uint"
+  | Address -> "address"
+  | Map (t_e1, t_e2)-> "mapping(" ^ t_exp_to_string t_e1 ^ " => " ^ t_exp_to_string t_e2 ^ ")"
+
 let rec print_tuples lst =
   match lst with
     | [] -> ()
-    | (_, s) :: rest ->
-      Printf.printf "%s; " s;
+    | (t_e, s) :: rest ->
+      let s1 = t_exp_to_string t_e in
+      Printf.printf "%s : %s; " s1 s;
       print_tuples rest
 
 let () =
@@ -624,5 +633,4 @@ let () =
   (* match e2 with 
     | Val (VUInt(i)) -> Format.eprintf "%s\n" (Stdlib.string_of_int i); 
     | _ -> assert false *)
-
 
