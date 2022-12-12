@@ -203,7 +203,8 @@ let rec eval_expr
     | AritOp a1 -> begin match a1 with
       | Plus (e1, e2) -> begin match e1, e2 with
         | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, sigma, eval_arit_expr a1)
-        | Val (VUInt i), e2 -> (blockchain, sigma, eval_expr (AritOp(Plus (Val (VUInt i), eval_expr e2 vars conf))) vars conf)
+        | Val (VUInt i), e2 -> let (_, _, e2') = eval_expr vars (eval_expr vars (blockchain, sigma, AritOp(Plus (Val (VUInt i))))) in 
+          (blockchain, sigma, e2')
         | e1, e2 -> eval_expr (AritOp(Plus (eval_expr e1 vars conf, e2))) vars conf
       end
       | Div (e1, e2) -> begin match e1, e2 with
@@ -479,9 +480,10 @@ let update_balance
 (*if sigma = sigma' * a' then a' else if sigma = blockchain then Val(VUnit) *)
 
 let top 
-  (sigma: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) 
-  (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) : values =
-  if sigma = blockchain then VUnit else VAddress("0x0xxsd")
+ (sigma: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * values list) : values =
+  match sigma with
+  | (_, []) -> Val(VUnit)
+  | (_, a::l) -> a
 
 
 let bank_contract unit : contract_def = 
