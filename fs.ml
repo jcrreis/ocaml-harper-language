@@ -193,15 +193,17 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
   | _ -> assert false *)
 
 let rec eval_expr 
-  (e: expr) 
   (vars: (string, expr) Hashtbl.t) 
   (conf: (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * 
-  ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * expr)): expr = 
+  ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * expr)) : 
+  (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * 
+  ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * expr) = 
+  let (blockchain, sigma, e) = conf in
   match e with
     | AritOp a1 -> begin match a1 with
       | Plus (e1, e2) -> begin match e1, e2 with
-        | Val (VUInt(_)), Val (VUInt(_)) ->  eval_arit_expr a1 
-        | Val (VUInt i), e2 -> eval_expr (AritOp(Plus (Val (VUInt i), eval_expr e2 vars conf))) vars conf
+        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, sigma, eval_arit_expr a1)
+        | Val (VUInt i), e2 -> (blockchain, sigma, eval_expr (AritOp(Plus (Val (VUInt i), eval_expr e2 vars conf))) vars conf)
         | e1, e2 -> eval_expr (AritOp(Plus (eval_expr e1 vars conf, e2))) vars conf
       end
       | Div (e1, e2) -> begin match e1, e2 with
