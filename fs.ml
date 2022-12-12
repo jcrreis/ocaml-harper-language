@@ -21,11 +21,10 @@ type values =
   | VUInt of int 
   | VAddress of string 
   | VUnit 
-  | VContract of string
-  | VMapping 
+  | VContract of int
+  | VMapping of (expr, expr) Hashtbl.t
   (*c.f*)
-
-type arit_ops = 
+and arit_ops = 
   | Plus of expr * expr 
   | Div of expr * expr 
   | Times of expr * expr
@@ -49,7 +48,7 @@ and expr =
   | BoolOp of bool_ops
   | Var of string
   | Val of values
-  | This 
+  | This of string
   | MsgSender 
   | MsgValue 
   | Balance of expr
@@ -258,7 +257,7 @@ let rec eval_expr
     end
     | Var(x) -> Hashtbl.find vars x
     | Val e1 -> Val e1
-    | This -> Val(VAddress("0x23213"))
+    | This s -> Val(VAddress("0x23213"))
     | MsgSender -> Val(VAddress("0x23213"))
     | MsgValue -> Val(VUInt(1000))
     | Balance e1 -> assert false
@@ -286,11 +285,12 @@ let rec eval_expr
     | Return e1 -> assert false 
 
 
-let rec union_list_set (lst: FV.t list) (set: FV.t): FV.t = match lst with 
-    | [] -> set 
-    | x :: xs -> union_list_set xs (FV.union set x)
 
 let rec free_variables (e: expr) : FV.t = 
+  let rec union_list_set (lst: FV.t list) (set: FV.t): FV.t = match lst with 
+    | [] -> set 
+    | x :: xs -> union_list_set xs (FV.union set x)
+  in
   match e with 
   | AritOp a1 -> begin match a1 with
     | Plus (e1, e2) -> FV.union (free_variables e1) (free_variables e2) 
@@ -313,7 +313,7 @@ let rec free_variables (e: expr) : FV.t =
   end
   | Val _ -> FV.empty
   | Var x -> FV.singleton x
-  | This -> FV.singleton "this"
+  | This s -> FV.singleton "this"
   | MsgSender -> FV.singleton "msg.sender"
   | MsgValue -> FV.singleton "msg.value"
   | Balance e1 -> free_variables e1 
@@ -337,7 +337,12 @@ let rec free_variables (e: expr) : FV.t =
 
 
 
-let rec free_addr_names (e: expr) : FN.t = match e with 
+let rec free_addr_names (e: expr) : FN.t = 
+  let rec union_list_set (lst: FN.t list) (set: FN.t): FN.t = match lst with 
+    | [] -> set 
+    | x :: xs -> union_list_set xs (FN.union set x)
+  in
+  match e with 
   | AritOp a1 -> begin match a1 with
     | Plus (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2) 
     | Div (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2) 
@@ -358,9 +363,9 @@ let rec free_addr_names (e: expr) : FN.t = match e with
     | Inequals (e1, e2) -> FN.union (free_addr_names e1) (free_addr_names e2)
   end
   | Val (VAddress a) -> FN.singleton a 
-  | Val (VContract c) -> FN.singleton c
+  | Val (VContract c) -> FN.empty 
   | Val _ -> FN.empty 
-  | This -> FN.empty 
+  | This s -> FN.empty 
   | Var x -> FN.empty 
   | MsgSender -> FN.empty 
   | MsgValue -> FN.empty 
@@ -409,7 +414,7 @@ let rec substitute (e: expr) (e': expr) (x: string) : expr =
   end 
   | Var y -> if x = y then e' else e
   | Val _ -> e
-  | This -> if x = "this" then e' else e 
+  | This s -> if x = "this" then e' else e 
   | MsgSender -> e
   | MsgValue -> e 
   | Balance e1 -> Balance (substitute e1 e' x)
@@ -484,26 +489,26 @@ let bank_contract unit : contract_def =
     args = [];
     body = Return(
       (StateAssign(
-        This, 
+        This (""), 
         "balances", 
         MapWrite(
-          StateRead(This,"balances"), MsgSender, AritOp((Plus(MapRead(StateRead(This,"balances"),MsgSender), MsgValue)))))))
+          StateRead(This(""),"balances"), MsgSender, AritOp((Plus(MapRead(StateRead(This(""),"balances"),MsgSender), MsgValue)))))))
   } in 
   let getBalance = {
     name = "getBalance";
     rettype = UInt;
     args = [];
-    body = MapRead(StateRead(This,"balances"),MsgSender)
+    body = MapRead(StateRead(This(""),"balances"),MsgSender)
   } in 
   let transfer = {
     name = "transfer";
     rettype = Unit;
     args = [(Address, "to"); (UInt, "amount")];
-    body = If(BoolOp(GreaterOrEquals(MapRead(StateRead(This,"balances"),MsgSender),Var("amount"))), 
-          Seq(StateAssign(This, "balances", MapWrite(
-            StateRead(This,"balances"), MsgSender, AritOp(Minus(MapRead(StateRead(This,"balances"),MsgSender), Var("amount"))))),
-              StateAssign(This, "balances", MapWrite(
-            StateRead(This,"balances"), Var("to"), AritOp(Minus(MapRead(StateRead(This,"balances"),Var("to")), Var("amount")))))
+    body = If(BoolOp(GreaterOrEquals(MapRead(StateRead(This(""),"balances"),MsgSender),Var("amount"))), 
+          Seq(StateAssign(This(""), "balances", MapWrite(
+            StateRead(This(""),"balances"), MsgSender, AritOp(Minus(MapRead(StateRead(This(""),"balances"),MsgSender), Var("amount"))))),
+              StateAssign(This(""), "balances", MapWrite(
+            StateRead(This(""),"balances"), Var("to"), AritOp(Minus(MapRead(StateRead(This(""),"balances"),Var("to")), Var("amount")))))
             ),
           Val(VUnit))
   } in 
@@ -511,10 +516,10 @@ let bank_contract unit : contract_def =
     name = "withdraw";
     rettype = Unit;
     args = [(UInt, "amount")];
-    body = If(BoolOp(GreaterOrEquals(MapRead(StateRead(This,"balances"),MsgSender),Var("amount"))),
+    body = If(BoolOp(GreaterOrEquals(MapRead(StateRead(This(""),"balances"),MsgSender),Var("amount"))),
             Seq(
-              StateAssign(This, "balances", MapWrite(
-              StateRead(This,"balances"), MsgSender, AritOp(Minus(MapRead(StateRead(This,"balances"),MsgSender), Var("amount"))))),
+              StateAssign(This(""), "balances", MapWrite(
+              StateRead(This(""),"balances"), MsgSender, AritOp(Minus(MapRead(StateRead(This(""),"balances"),MsgSender), Var("amount"))))),
               Transfer(MsgSender, Var("x"))
               ),
             Val(VUnit)
@@ -523,7 +528,7 @@ let bank_contract unit : contract_def =
   {
     name = "Bank";
     state = [(Map(Address, UInt),"balances")];
-    constructor = ([(Map(Address, UInt),"balances")], Return (StateAssign(This, "balances", Var("balances"))));
+    constructor = ([(Map(Address, UInt),"balances")], Return (StateAssign(This(""), "balances", Var("balances"))));
     functions = [deposit; getBalance; transfer; withdraw];
   }
 
@@ -534,12 +539,12 @@ let setHealth = {
   rettype = Unit;
   args = [(Address, "donor"); (Bool, "isHealty")];
   body = Return (
-    If(BoolOp(Equals(MsgSender, StateRead(This, "doctor"))),
+    If(BoolOp(Equals(MsgSender, StateRead(This(""), "doctor"))),
       (StateAssign(
-      This, 
+      This(""), 
       "healty", 
       MapWrite(
-        StateRead(This,"healty"), Var("donor"), Var("isHealty")))),
+        StateRead(This(""),"healty"), Var("donor"), Var("isHealty")))),
       Revert
     )
   );
@@ -549,8 +554,8 @@ let isHealty = {
   rettype = Bool;
   args = [(Address, "donor")];
   body = Return(
-    If(BoolOp(Equals(MsgSender, StateRead(This, "doctor"))),
-      MapRead(StateRead(This, "healty"), Var("donor")),
+    If(BoolOp(Equals(MsgSender, StateRead(This(""), "doctor"))),
+      MapRead(StateRead(This(""), "healty"), Var("donor")),
       Revert
     )
   );
@@ -561,11 +566,11 @@ let donate = {
   rettype = Unit;
   args = [(UInt, "amount")];
   body = Return(
-    Let(UInt, "donorBlood",Call(Val(VContract("asx")),"getBlood",Val(VUInt(0)),[]),
-    If(BoolOp(Conj(MapRead(StateRead(This, "healty"), MsgSender), BoolOp(Conj(
+    Let(UInt, "donorBlood",Call(Val(VContract(1)),"getBlood",Val(VUInt(0)),[]),
+    If(BoolOp(Conj(MapRead(StateRead(This(""), "healty"), MsgSender), BoolOp(Conj(
       BoolOp(Greater(Var("donorBlood"),Val(VUInt(3000)))), BoolOp(Greater(
         AritOp(Minus(Var("donorBlood"), Var("amount"))), Val(VUInt(0)))))))),
-      StateAssign(This, "blood", AritOp(Plus(StateRead(This, "blood"), Var("amount")))),
+      StateAssign(This(""), "blood", AritOp(Plus(StateRead(This(""), "blood"), Var("amount")))),
       Val(VUnit)
   )));
 } in
@@ -573,21 +578,21 @@ let getDoctor = {
   name = "getDoctor";
   rettype = Address;
   args = [];
-  body = Return(StateRead(This, "doctor"));
+  body = Return(StateRead(This(""), "doctor"));
 } in
 let getBlood = {
   name = "getBlood";
   rettype = UInt;
   args = [];
-  body = Return(StateRead(This, "blood"));
+  body = Return(StateRead(This(""), "blood"));
 } in
 {
   name = "BloodBank";
   state = [(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")];
   constructor = ([(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")], Return 
-        (Seq((StateAssign(This, "healty", Var("healty")),
-          Seq((StateAssign(This, "doctor", Var("doctor"))),
-               StateAssign(This, "blood", Var("blood"))))
+        (Seq((StateAssign(This(""), "healty", Var("healty")),
+          Seq((StateAssign(This(""), "doctor", Var("doctor"))),
+               StateAssign(This(""), "blood", Var("blood"))))
   )));
   functions = [setHealth; isHealty; donate; getDoctor; getBlood];
 }
@@ -604,20 +609,20 @@ let getBank = {
   name = "getBank";
   rettype = C("BloodBank");
   args = [];
-  body = Return(StateRead(This, "bank"));
+  body = Return(StateRead(This(""), "bank"));
 } in
 let getBlood = {
   name = "getBlood";
   rettype = UInt;
   args = [];
-  body = Return(StateRead(This, "blood"));
+  body = Return(StateRead(This(""), "blood"));
 } in
 {
   name = "Donor";
   state = [(UInt, "blood"); (Address, "bank")];
   constructor = ([(UInt, "blood"); (Address,"bank")], Return (Seq(
-    StateAssign(This, "blood", Var("blood")),
-    StateAssign(This, "bank", Var("bank"))
+    StateAssign(This(""), "blood", Var("blood")),
+    StateAssign(This(""), "bank", Var("bank"))
   )));
   functions = [donate; getBank; getBlood];
 }
@@ -646,16 +651,16 @@ let () =
   Format.eprintf "%s\n" (arit_op_to_string e1); *)
   let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64 in 
   let blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t = Hashtbl.create 64 in
-  let sigma: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t = Hashtbl.create 64 in
+  let sigma: (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * values list) = (blockchain, []) in
   let conf: 
     (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * 
-    ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t 
+    (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * values list) 
     * expr) = (blockchain, sigma, Val(VUInt(0))) in
   let vars: (string, expr) Hashtbl.t = Hashtbl.create 64 in 
   let p = Program(ct, blockchain, Val(VUInt(0))) in
   
   let print_set s = FV.iter print_endline s in
-  let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This, "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
+  let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This(""), "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
   let lst = free_addr_names e2 in 
   print_set lst;
   let e1 = (AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(10)),(Val(VUInt(2)))))))) in 
