@@ -11,6 +11,7 @@ type t_exp =
   | UInt 
   | Address 
   | Map of t_exp * t_exp
+  | TRevert
 
 type b_val =
   | True
@@ -267,15 +268,15 @@ let rec eval_expr
     | MsgValue -> (blockchain, sigma, Val(VUInt(1000)))
     | Balance e1 -> begin match eval_expr vars (blockchain, sigma, e1) with
       | (_, _, Val(VAddress(a))) -> 
-      let (_, _, v) = Hashtbl.find blockchain (_, a) in  
-        (blockchain, sigma, v)
+      let (_, _, v) = Hashtbl.find blockchain (VAddress(a),VAddress(a)) in  
+        (blockchain, sigma, Val(v))
       | _ -> assert false
       end
     | Address e1 -> assert false
     | StateRead (e1, s) ->  begin match eval_expr vars (blockchain, sigma, e1) with
       | (_, _, Val(VContract(a))) ->    
-        let (_, _, v) = Hashtbl.find blockchain (a, s) in  
-          (blockchain, sigma, v)  
+        let (_, _, v) = Hashtbl.find blockchain (VContract(a),VContract(a)) in  
+          (blockchain, sigma, Val(v))  
       | _ -> assert false
       end 
     | Transfer (e1, e2) -> assert false 
@@ -300,7 +301,7 @@ let rec eval_expr
     | StateAssign (e1, s , e2) -> assert false 
     | MapRead (e1, e2) -> assert false 
     | MapWrite (e1, e2, e3) -> assert false 
-    | Return e1 -> (blockchain, sigma, eval_expr vars (blockchain, sigma, e1))
+    | Return e1 -> let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in (blockchain, sigma, e1')
 
 
 
@@ -488,7 +489,7 @@ let update_balance
   (value: values) 
   (vars: (string, expr) Hashtbl.t) 
   (conf: (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * 
-  ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t 
+  (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * values list)
   * expr)) : unit =
     let (blockchain, sigma , _) = conf in
     let (c, sv, old_balance) = Hashtbl.find blockchain (address, address) in
@@ -686,8 +687,9 @@ let () =
   let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This(""), "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
   let lst = free_addr_names e2 in 
   print_set lst;
-  let e1 = (AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(10)),(Val(VUInt(2)))))))) in 
-  let e2 = eval_expr vars (blockchain, sigma, e1) in 
+  let e1 = (AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(40)),(Val(VUInt(2)))))))) in 
+  let (_, _, Val(VUInt(i))) = eval_expr vars (blockchain, sigma, e1) in 
+  (* Format.eprintf "%d\n" i; *)
   Hashtbl.add ct "Bank" (bank_contract());
   Hashtbl.add ct "BloodBank" (blood_bank_contract());
   Hashtbl.add ct "Donor" (donor_contract());
