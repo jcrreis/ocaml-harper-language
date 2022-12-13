@@ -292,7 +292,9 @@ let rec eval_expr
     | New (s, e1, le) -> assert false 
     | Cons (s, e1) -> assert false 
     | Seq (e1, e2) -> assert false 
-    | Let(_, x, e1, e2) -> let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in
+    | Let(_, x, e1, e2) -> 
+      if Hashtbl.mem vars x then (blockchain, sigma, Revert) else (* verify if x está em vars, modificação à tese do pirro*)
+      let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in 
       Hashtbl.add vars x e1' ; eval_expr vars (blockchain, sigma, e2)
     | Assign (x, e1) -> let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in
       Hashtbl.add vars x e1' ; (blockchain, sigma, Val(VUnit))
@@ -312,7 +314,7 @@ let rec eval_expr
       | (_, _, Val(VContract(c))) ->    
         let a = get_address_by_contract blockchain (VContract(c)) in
         let (_, sv, _) = Hashtbl.find blockchain (VContract(c),a) in
-        let sv' = StateVars.add s (eval_expr vars (blockchain, sigma, e2)) sv in  
+        let sv' = StateVars.add s (eval_expr vars (blockchain, sigma, e2)) in  
         (blockchain, sigma, StateVars.find s sv)
       | _ -> assert false
       end 
