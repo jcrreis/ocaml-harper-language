@@ -263,9 +263,10 @@ let rec eval_expr
     end
     | Var(x) -> (blockchain, sigma, Hashtbl.find vars x)
     | Val e1 -> (blockchain, sigma, Val e1)
-    | This s -> (blockchain, sigma, Val(VAddress("0x23213"))) 
-    | MsgSender -> (blockchain, sigma, Val(VAddress("0x23213"))) 
-    | MsgValue -> (blockchain, sigma, Val(VUInt(1000)))
+    | This s -> if s = "" then (blockchain, sigma, Hashtbl.find vars "this") else 
+      (blockchain, sigma, Val(VAddress("0x23213"))) 
+    | MsgSender -> (blockchain, sigma, Hashtbl.find vars "msg.sender") 
+    | MsgValue -> (blockchain, sigma, Hashtbl.find vars "msg.value")
     | Balance e1 -> begin match eval_expr vars (blockchain, sigma, e1) with
       | (_, _, Val(VAddress(a))) -> 
       let (_, _, v) = Hashtbl.find blockchain (VAddress(a),VAddress(a)) in  
