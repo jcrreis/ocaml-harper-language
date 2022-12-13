@@ -48,7 +48,7 @@ and expr =
   | BoolOp of bool_ops
   | Var of string
   | Val of values
-  | This of string
+  | This of string (*This ("") === This, else This.fname*)
   | MsgSender 
   | MsgValue 
   | Balance of expr
@@ -265,9 +265,19 @@ let rec eval_expr
     | This s -> (blockchain, sigma, Val(VAddress("0x23213"))) 
     | MsgSender -> (blockchain, sigma, Val(VAddress("0x23213"))) 
     | MsgValue -> (blockchain, sigma, Val(VUInt(1000)))
-    | Balance e1 -> assert false
+    | Balance e1 -> begin match eval_expr vars (blockchain, sigma, e1) with
+      | (_, _, Val(VAddress(a))) -> 
+      let (_, _, v) = Hashtbl.find blockchain (_, a) in  
+        (blockchain, sigma, v)
+      | _ -> assert false
+      end
     | Address e1 -> assert false
-    | StateRead (e1, s) ->  assert false 
+    | StateRead (e1, s) ->  begin match eval_expr vars (blockchain, sigma, e1) with
+      | (_, _, Val(VContract(a))) ->    
+        let (_, _, v) = Hashtbl.find blockchain (a, s) in  
+          (blockchain, sigma, v)  
+      | _ -> assert false
+      end 
     | Transfer (e1, e2) -> assert false 
     | New (s, e1, le) -> assert false 
     | Cons (s, e1) -> assert false 
@@ -286,11 +296,11 @@ let rec eval_expr
       end
     | Call (e1, s, e2, le) -> assert false 
     | CallVariant (e1, s, e2, e3, le) -> assert false 
-    | Revert -> assert false 
+    | Revert -> (blockchain, sigma, Revert)
     | StateAssign (e1, s , e2) -> assert false 
     | MapRead (e1, e2) -> assert false 
     | MapWrite (e1, e2, e3) -> assert false 
-    | Return e1 -> assert false 
+    | Return e1 -> (blockchain, sigma, eval_expr vars (blockchain, sigma, e1))
 
 
 
@@ -448,8 +458,8 @@ let rec substitute (e: expr) (e': expr) (x: string) : expr =
 (*sv*)
 let state_vars_contract (contract_name: string) (ct: (string, contract_def) Hashtbl.t) : (t_exp * string) list =
   let contract : contract_def = Hashtbl.find ct contract_name in contract.state
+ 
 
-(* VER ESTA FUNÇÃO fbody ----> necessário para semântica (FUNÇÃO AUXILIAR)*)
 let function_body 
   (contract_name: string) 
   (function_name: string) 
@@ -463,10 +473,13 @@ let function_body
       if List.length values = List.length f.args then (f.args, f.body) else ([], Return (Revert))
     with Not_found -> ([], Return (Revert))
 
+
 let function_type (contract_name: string) (function_name: string) (ct: (string, contract_def) Hashtbl.t) : t_exp =
   let contract : contract_def = Hashtbl.find ct contract_name in 
   let functions_def : fun_def list = contract.functions in
-  let f = List.find (fun (x : fun_def) -> x.name = function_name) (functions_def) in f.rettype
+  try
+    let f = List.find (fun (x : fun_def) -> x.name = function_name) (functions_def) in f.rettype
+  with Not_found -> TRevert
   
   (*uptbal(β, a, n)*)
 let update_balance 
