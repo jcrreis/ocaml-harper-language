@@ -270,8 +270,8 @@ let rec eval_expr
     | MsgValue -> (blockchain, sigma, Hashtbl.find vars "msg.value")
     | Balance e1 -> begin match eval_expr vars (blockchain, sigma, e1) with
       | (_, _, Val(VAddress(a))) -> 
-      let c = Hashtbl.fold (fun k v res -> let (c1, a1) = k in if a = a1 then res := c1 else res) blockchain VUnit in
-      let (_, _, v) = Hashtbl.find blockchain (VAddress(a),VAddress(a)) in  
+      let c = Hashtbl.fold (fun (k1, k2) (_, _, _) acc -> if k2 = VAddress(a) then k1 else acc) blockchain VUnit in
+      let (_, _, v) = Hashtbl.find blockchain (c, VAddress(a)) in  
         (blockchain, sigma, Val(v))
       | _ -> assert false
       end
