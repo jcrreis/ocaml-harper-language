@@ -201,6 +201,12 @@ let rec eval_expr
   (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * 
   ((((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) * values list) * expr) = 
   let (blockchain, sigma, e) = conf in
+  let get_contract_by_address (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t ) (address: values) = 
+    Hashtbl.fold (fun (k1, k2) (_, _, _) acc -> if k2 = address then k1 else acc) blockchain VUnit 
+  in
+  let get_address_by_contract (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t ) (contract: values) = 
+    Hashtbl.fold (fun (k1, k2) (_, _, _) acc -> if k1 = contract then k2 else acc) blockchain VUnit 
+  in
   match e with
     | AritOp a1 -> begin match a1 with
       | Plus (e1, e2) -> begin match e1, e2 with
@@ -270,16 +276,17 @@ let rec eval_expr
     | MsgValue -> (blockchain, sigma, Hashtbl.find vars "msg.value")
     | Balance e1 -> begin match eval_expr vars (blockchain, sigma, e1) with
       | (_, _, Val(VAddress(a))) -> 
-      let c = Hashtbl.fold (fun (k1, k2) (_, _, _) acc -> if k2 = VAddress(a) then k1 else acc) blockchain VUnit in
+      let c =  get_contract_by_address blockchain (VAddress(a)) in 
       let (_, _, v) = Hashtbl.find blockchain (c, VAddress(a)) in  
         (blockchain, sigma, Val(v))
       | _ -> assert false
       end
     | Address e1 -> assert false
     | StateRead (e1, s) ->  begin match eval_expr vars (blockchain, sigma, e1) with
-      | (_, _, Val(VContract(a))) ->    
-        let (_, _, v) = Hashtbl.find blockchain (VContract(a),VContract(a)) in  
-          (blockchain, sigma, Val(v))  
+      | (_, _, Val(VContract(c))) ->    
+        let a = get_address_by_contract blockchain (VContract(c)) in
+        let (_, sv, _) = Hashtbl.find blockchain (VContract(c),a) in  
+        (blockchain, sigma, StateVars.find s sv)
       | _ -> assert false
       end 
     | Transfer (e1, e2) -> assert false 
