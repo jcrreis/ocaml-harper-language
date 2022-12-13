@@ -215,7 +215,6 @@ let rec eval_expr
           eval_expr vars (blockchain, sigma, AritOp(Plus (Val (VUInt i), e2')))
         | e1, e2 -> let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in
           eval_expr vars (blockchain, sigma, AritOp(Plus (e1', e2)))
-          (* eval_expr (AritOp(Plus (eval_expr e1 vars conf, e2))) vars conf *)
       end
       | Div (e1, e2) -> begin match e1, e2 with
         | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, sigma, eval_arit_expr a1) 
@@ -308,7 +307,15 @@ let rec eval_expr
     | Call (e1, s, e2, le) -> assert false 
     | CallVariant (e1, s, e2, e3, le) -> assert false 
     | Revert -> (blockchain, sigma, Revert)
-    | StateAssign (e1, s , e2) -> assert false 
+    | StateAssign (e1, s , e2) -> 
+      begin match eval_expr vars (blockchain, sigma, e1) with
+      | (_, _, Val(VContract(c))) ->    
+        let a = get_address_by_contract blockchain (VContract(c)) in
+        let (_, sv, _) = Hashtbl.find blockchain (VContract(c),a) in
+        let sv' = StateVars.add s (eval_expr vars (blockchain, sigma, e2)) sv in  
+        (blockchain, sigma, StateVars.find s sv)
+      | _ -> assert false
+      end 
     | MapRead (e1, e2) -> assert false 
     | MapWrite (e1, e2, e3) -> assert false 
     | Return e1 -> let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in (blockchain, sigma, e1')
