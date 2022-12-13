@@ -196,7 +196,8 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
 let rec eval_expr 
   (vars: (string, expr) Hashtbl.t) 
   (conf: (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * 
-  ((((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) * values list) * expr)) : 
+  ((((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) * values list) * expr)) 
+  : 
   (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * 
   ((((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) * values list) * expr) = 
   let (blockchain, sigma, e) = conf in
@@ -269,6 +270,7 @@ let rec eval_expr
     | MsgValue -> (blockchain, sigma, Hashtbl.find vars "msg.value")
     | Balance e1 -> begin match eval_expr vars (blockchain, sigma, e1) with
       | (_, _, Val(VAddress(a))) -> 
+      let c = Hashtbl.fold (fun k v res -> let (c1, a1) = k in if a = a1 then res := c1 else res) blockchain VUnit in
       let (_, _, v) = Hashtbl.find blockchain (VAddress(a),VAddress(a)) in  
         (blockchain, sigma, Val(v))
       | _ -> assert false
@@ -443,7 +445,7 @@ let rec substitute (e: expr) (e': expr) (x: string) : expr =
   | Transfer (e1, e2) -> Transfer (substitute e1 e' x, substitute e2 e' x)
   | New (s, e1, le) -> New (s, substitute e1 e' x, List.map f le)
   | Seq (e1, e2) -> Seq (substitute e1 e' x, substitute e2 e' x)
-  | Let (t_e, s, e1, e2) -> assert false
+  | Let (t_e, s, e1, e2) -> Let (t_e, s, substitute e1 e' x, substitute e2 e' x)
   | Assign (y, e1) -> Assign (y, substitute e1 e' x)
   | MapRead (e1, e2) -> MapRead (substitute e1 e' x, substitute e2 e' x)
   | MapWrite (e1, e2, e3) -> MapWrite (substitute e1 e' x, substitute e2 e' x, substitute e3 e' x)
