@@ -323,8 +323,19 @@ let rec eval_expr
           (blockchain, sigma, StateVars.find s sv)
         | _ -> assert false
       end 
-    | MapRead (e1, e2) -> assert false 
-    | MapWrite (e1, e2, e3) -> assert false 
+    | MapRead (e1, e2) -> begin match eval_expr vars (blockchain, sigma, e1) with
+      | (_, _, Val(VMapping(m))) -> 
+        let (_, _, e2') = eval_expr vars (blockchain, sigma, e2) in 
+        (blockchain, sigma, Hashtbl.find m e2')
+      | _ -> assert false
+      end
+    | MapWrite (e1, e2, e3) -> begin match eval_expr vars (blockchain, sigma, e1) with
+      | (_, _, Val(VMapping(m))) -> 
+        let (_, _, e2') = eval_expr vars (blockchain, sigma, e2) in 
+        let (_, _, e3') = eval_expr vars (blockchain, sigma, e3) in 
+        Hashtbl.add m e2' e3' ; (blockchain, sigma, Val(VUnit))
+      | _ -> assert false
+      end
     | Return e1 -> let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in (blockchain, sigma, e1')
 
 
