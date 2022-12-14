@@ -275,12 +275,17 @@ let rec eval_expr
     | MsgValue -> (blockchain, sigma, Hashtbl.find vars "msg.value")
     | Balance e1 -> begin match eval_expr vars (blockchain, sigma, e1) with
       | (_, _, Val(VAddress(a))) -> 
-      let c =  get_contract_by_address blockchain (VAddress(a)) in 
-      let (_, _, v) = Hashtbl.find blockchain (c, VAddress(a)) in  
+        let c =  get_contract_by_address blockchain (VAddress(a)) in 
+        let (_, _, v) = Hashtbl.find blockchain (c, VAddress(a)) in  
         (blockchain, sigma, Val(v))
       | _ -> assert false
       end
-    | Address e1 -> assert false
+    | Address e1 ->  begin match eval_expr vars (blockchain, sigma, e1) with
+      | (_, _, Val(VContract(c))) -> 
+        let a =  get_address_by_contract blockchain (VContract(c)) in 
+        (blockchain, sigma, Val(a))
+      | _ -> assert false
+      end
     | StateRead (e1, s) ->  begin match eval_expr vars (blockchain, sigma, e1) with
       | (_, _, Val(VContract(c))) ->    
         let a = get_address_by_contract blockchain (VContract(c)) in
@@ -311,12 +316,12 @@ let rec eval_expr
     | Revert -> (blockchain, sigma, Revert)
     | StateAssign (e1, s , e2) -> 
       begin match eval_expr vars (blockchain, sigma, e1) with
-      | (_, _, Val(VContract(c))) ->    
-        let a = get_address_by_contract blockchain (VContract(c)) in
-        let (_, sv, _) = Hashtbl.find blockchain (VContract(c),a) in
-        let sv' = StateVars.add s (eval_expr vars (blockchain, sigma, e2)) in  
-        (blockchain, sigma, StateVars.find s sv)
-      | _ -> assert false
+        | (_, _, Val(VContract(c))) ->    
+          let a = get_address_by_contract blockchain (VContract(c)) in
+          let (_, sv, _) = Hashtbl.find blockchain (VContract(c),a) in
+          let sv' = StateVars.add s (eval_expr vars (blockchain, sigma, e2)) in  
+          (blockchain, sigma, StateVars.find s sv)
+        | _ -> assert false
       end 
     | MapRead (e1, e2) -> assert false 
     | MapWrite (e1, e2, e3) -> assert false 
