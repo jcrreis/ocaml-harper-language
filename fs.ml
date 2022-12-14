@@ -516,9 +516,13 @@ let update_balance
   (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * values list)
   * expr)) : unit =
     let (blockchain, sigma , _) = conf in
-    let (c, sv, old_balance) = Hashtbl.find blockchain (address, address) in
+    let get_contract_by_address (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t ) (address: values) = 
+    Hashtbl.fold (fun (k1, k2) (_, _, _) acc -> if k2 = address then k1 else acc) blockchain VUnit 
+    in
+    let contract = get_contract_by_address blockchain address in
+    let (c, sv, old_balance) = Hashtbl.find blockchain (contract, address) in
     let (_, _, Val(new_balance)) = eval_expr vars (blockchain, sigma, (AritOp (Plus (Val(old_balance), Val(value))))) in
-    Hashtbl.replace blockchain (address(*Aqui deve se usar o construtor contrato*), address) (c, sv, new_balance)
+    Hashtbl.replace blockchain (contract, address) (c, sv, new_balance)
 
 (*Top(σ)*)
 (*if sigma = sigma' * a' then a' else if sigma = blockchain then Val(VUnit) *)
