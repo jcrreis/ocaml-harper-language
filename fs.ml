@@ -194,15 +194,15 @@ let rec bool_op_to_string (e: bool_ops) : string = match e with
   | Bool(False) -> "false"
   | _ -> assert false *)
 
-type conf = (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t *
-  ((((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) * values list) * expr)
+type blockchain = ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t
+
+type conf = (blockchain * blockchain * values Stack.t * expr)
 
 let rec eval_expr
   (vars: (string, expr) Hashtbl.t)
-  (conf: conf)
-  : conf
+  (conf: conf) : conf
    =
-  let (blockchain, sigma, e) = conf in
+  let (blockchain, blockchain', sigma, e) = conf in
   let get_contract_by_address (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t ) (address: values) =
     Hashtbl.fold (fun (k1, k2) (_, _, _) acc -> if k2 = address then k1 else acc) blockchain VUnit
   in
@@ -212,37 +212,37 @@ let rec eval_expr
   match e with
     | AritOp a1 -> begin match a1 with
       | Plus (e1, e2) -> begin match e1, e2 with
-        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, sigma, eval_arit_expr a1)
-        | Val (VUInt i), e2 -> let (_, _, e2') = eval_expr vars (blockchain, sigma, e2) in
-          eval_expr vars (blockchain, sigma, AritOp(Plus (Val (VUInt i), e2')))
-        | e1, e2 -> let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in
-          eval_expr vars (blockchain, sigma, AritOp(Plus (e1', e2)))
+        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, blockchain', sigma, eval_arit_expr a1)
+        | Val (VUInt i), e2 -> let (_, _, _, e2') = eval_expr vars (blockchain, blockchain', sigma, e2) in
+          eval_expr vars (blockchain, blockchain', sigma, AritOp(Plus (Val (VUInt i), e2')))
+        | e1, e2 -> let (_, _, _, e1') = eval_expr vars (blockchain, blockchain', sigma, e1) in
+          eval_expr vars (blockchain, blockchain', sigma, AritOp(Plus (e1', e2)))
       end
       | Div (e1, e2) -> begin match e1, e2 with
-        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, sigma, eval_arit_expr a1)
+        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, blockchain', sigma, eval_arit_expr a1)
         | _ -> assert false
       end
       | Times (e1, e2) -> begin match e1, e2 with
-        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, sigma, eval_arit_expr a1)
+        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, blockchain', sigma, eval_arit_expr a1)
         | _ -> assert false
       end
       | Minus (e1, e2) -> begin match e1, e2 with
-        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, sigma, eval_arit_expr a1)
+        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, blockchain', sigma, eval_arit_expr a1)
         | _ -> assert false
       end
       | Exp (e1, e2) -> begin match e1, e2 with
-        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, sigma, eval_arit_expr a1)
+        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, blockchain', sigma, eval_arit_expr a1)
         | _ -> assert false
       end
       | Mod (e1, e2) -> begin match e1, e2 with
-        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, sigma, eval_arit_expr a1)
+        | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, blockchain', sigma, eval_arit_expr a1)
         | _ -> assert false
       end
     end
     | BoolOp b1 -> begin match b1 with
       | Neg e1 -> begin match e1 with
-        | Val (VBool(_)) -> (blockchain, sigma, eval_bool_expr b1)
-        | _ -> eval_expr vars (eval_expr vars (blockchain, sigma, e1))
+        | Val (VBool(_)) -> (blockchain, blockchain', sigma, eval_bool_expr b1)
+        | _ -> eval_expr vars (eval_expr vars (blockchain, blockchain', sigma, e1))
       end
       | Conj (e1, e2) -> begin match e1, e2 with
         _ -> assert false
@@ -269,30 +269,30 @@ let rec eval_expr
         _ -> assert false
       end
     end
-    | Var(x) -> (blockchain, sigma, Hashtbl.find vars x)
-    | Val e1 -> (blockchain, sigma, Val e1)
-    | This None -> (blockchain, sigma, Hashtbl.find vars "this")
-    | This (Some s) -> (blockchain, sigma, Val(VAddress("0x23213")))
-    | MsgSender -> (blockchain, sigma, Hashtbl.find vars "msg.sender")
-    | MsgValue -> (blockchain, sigma, Hashtbl.find vars "msg.value")
-    | Balance e1 -> begin match eval_expr vars (blockchain, sigma, e1) with
-      | (_, _, Val(VAddress(a))) ->
+    | Var(x) -> (blockchain, blockchain', sigma, Hashtbl.find vars x)
+    | Val e1 -> (blockchain, blockchain', sigma, Val e1)
+    | This None -> (blockchain, blockchain', sigma, Hashtbl.find vars "this")
+    | This (Some s) -> (blockchain, blockchain', sigma, Val(VAddress("0x23213")))
+    | MsgSender -> (blockchain, blockchain', sigma, Hashtbl.find vars "msg.sender")
+    | MsgValue -> (blockchain, blockchain', sigma, Hashtbl.find vars "msg.value")
+    | Balance e1 -> begin match eval_expr vars (blockchain, blockchain', sigma, e1) with
+      | (_, _, _, Val(VAddress(a))) ->
         let c =  get_contract_by_address blockchain (VAddress(a)) in
         let (_, _, v) = Hashtbl.find blockchain (c, VAddress(a)) in
-        (blockchain, sigma, Val(v))
+        (blockchain, blockchain', sigma, Val(v))
       | _ -> assert false
       end
-    | Address e1 ->  begin match eval_expr vars (blockchain, sigma, e1) with
-      | (_, _, Val(VContract(c))) ->
+    | Address e1 ->  begin match eval_expr vars (blockchain, blockchain', sigma, e1) with
+      | (_, _, _, Val(VContract(c))) ->
         let a =  get_address_by_contract blockchain (VContract(c)) in
-        (blockchain, sigma, Val(a))
+        (blockchain, blockchain', sigma, Val(a))
       | _ -> assert false
       end
-    | StateRead (e1, s) ->  begin match eval_expr vars (blockchain, sigma, e1) with
-      | (_, _, Val(VContract(c))) ->
+    | StateRead (e1, s) ->  begin match eval_expr vars (blockchain, blockchain', sigma, e1) with
+      | (_, _, _, Val(VContract(c))) ->
         let a = get_address_by_contract blockchain (VContract(c)) in
         let (_, sv, _) = Hashtbl.find blockchain (VContract(c),a) in
-        (blockchain, sigma, StateVars.find s sv)
+        (blockchain, blockchain', sigma, StateVars.find s sv)
       | _ -> assert false
       end
     | Transfer (e1, e2) -> assert false
@@ -300,12 +300,12 @@ let rec eval_expr
     | Cons (s, e1) -> assert false
     | Seq (e1, e2) -> assert false
     | Let(_, x, e1, e2) ->
-      if Hashtbl.mem vars x then (blockchain, sigma, Revert) else (* verify if x está em vars, modificação à tese do pirro*)
-      let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in
-      Hashtbl.add vars x e1' ; eval_expr vars (blockchain, sigma, e2)
-    | Assign (x, e1) -> let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in
-      Hashtbl.add vars x e1' ; (blockchain, sigma, Val(VUnit))
-    | If (e1, e2, e3) -> let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in
+      if Hashtbl.mem vars x then (blockchain, blockchain', sigma, Revert) else (* verify if x está em vars, modificação à tese do pirro*)
+      let (_, _, _, e1') = eval_expr vars (blockchain, blockchain', sigma, e1) in
+      Hashtbl.add vars x e1' ; eval_expr vars (blockchain, blockchain', sigma, e2)
+    | Assign (x, e1) -> let (_, _, _, e1') = eval_expr vars (blockchain, blockchain', sigma, e1) in
+      Hashtbl.add vars x e1' ; (blockchain, blockchain', sigma, Val(VUnit))
+    | If (e1, e2, e3) -> let (_, _, _, e1') = eval_expr vars (blockchain, blockchain', sigma, e1) in
       begin match e1' with
       | Val (VBool b) -> begin match b with
         | True -> eval_expr vars conf
@@ -315,32 +315,32 @@ let rec eval_expr
       end
     | Call (e1, s, e2, le) -> assert false
     | CallVariant (e1, s, e2, e3, le) -> assert false
-    | Revert -> (blockchain, sigma, Revert)
+    | Revert -> (blockchain, blockchain', sigma, Revert)
     | StateAssign (e1, s , e2) ->
-      begin match eval_expr vars (blockchain, sigma, e1) with
-        | (_, _, Val(VContract(c))) ->
+      begin match eval_expr vars (blockchain, blockchain', sigma, e1) with
+        | (_, _, _, Val(VContract(c))) ->
           let a = get_address_by_contract blockchain (VContract(c)) in
-          let (_, _, e2') = eval_expr vars (blockchain, sigma, e2) in
+          let (_, _, _, e2') = eval_expr vars (blockchain, blockchain', sigma, e2) in
           let (c_name, map, n) = Hashtbl.find blockchain (VContract c, a) in
           let map' = StateVars.add s e2' map in
           Hashtbl.replace blockchain (VContract(c),a) (c_name, map', n);
-          (blockchain, sigma, e2')
+          (blockchain, blockchain', sigma, e2')
         | _ -> assert false
       end
-    | MapRead (e1, e2) -> begin match eval_expr vars (blockchain, sigma, e1) with
-      | (_, _, Val(VMapping(m))) ->
-        let (_, _, e2') = eval_expr vars (blockchain, sigma, e2) in
-        (blockchain, sigma, Hashtbl.find m e2')
+    | MapRead (e1, e2) -> begin match eval_expr vars (blockchain, blockchain', sigma, e1) with
+      | (_, _, _, Val(VMapping(m))) ->
+        let (_, _, _, e2') = eval_expr vars (blockchain, blockchain', sigma, e2) in
+        (blockchain, blockchain', sigma, Hashtbl.find m e2')
       | _ -> assert false
       end
-    | MapWrite (e1, e2, e3) -> begin match eval_expr vars (blockchain, sigma, e1) with
-      | (_, _, Val(VMapping(m))) ->
-        let (_, _, e2') = eval_expr vars (blockchain, sigma, e2) in
-        let (_, _, e3') = eval_expr vars (blockchain, sigma, e3) in
-        Hashtbl.add m e2' e3' ; (blockchain, sigma, Val(VUnit))
+    | MapWrite (e1, e2, e3) -> begin match eval_expr vars (blockchain, blockchain', sigma, e1) with
+      | (_, _, _, Val(VMapping(m))) ->
+        let (_, _, _, e2') = eval_expr vars (blockchain, blockchain', sigma, e2) in
+        let (_, _, _, e3') = eval_expr vars (blockchain, blockchain', sigma, e3) in
+        Hashtbl.add m e2' e3' ; (blockchain, blockchain', sigma, Val(VUnit))
       | _ -> assert false
       end
-    | Return e1 -> let (_, _, e1') = eval_expr vars (blockchain, sigma, e1) in (blockchain, sigma, e1')
+    | Return e1 -> let (_, _, _, e1') = eval_expr vars (blockchain, blockchain', sigma, e1) in (blockchain, blockchain', sigma, e1')
 
 
 
@@ -528,24 +528,24 @@ let update_balance
   (value: values)
   (vars: (string, expr) Hashtbl.t)
   (conf: conf) : unit =
-    let (blockchain, sigma , _) = conf in
+    let (blockchain, blockchain', sigma, _) = conf in
     let get_contract_by_address (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t ) (address: values) =
     Hashtbl.fold (fun (k1, k2) (_, _, _) acc -> if k2 = address then k1 else acc) blockchain VUnit
     in
     let contract = get_contract_by_address blockchain address in
     let (c, sv, old_balance) = Hashtbl.find blockchain (contract, address) in
-    let (_, _, Val(new_balance)) = eval_expr vars (blockchain, sigma, (AritOp (Plus (Val(old_balance), Val(value))))) in
+    let (_, _, _, Val(new_balance)) = eval_expr vars (blockchain, blockchain', sigma, (AritOp (Plus (Val(old_balance), Val(value))))) in
     Hashtbl.replace blockchain (contract, address) (c, sv, new_balance)
 
 (*Top(σ)*)
 (*if sigma = sigma' * a' then a' else if sigma = blockchain then Val(VUnit) *)
 
 let top
- (sigma: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * values list) : values =
-  match sigma with
-  | (_, []) -> VUnit
-  | (_, a::l) -> a
-
+ (conf: conf) : values =
+ let (blockchain, blockchain', sigma, _) = conf in
+  try
+    Stack.top sigma
+  with Stack.Empty -> VUnit
 
 let bank_contract unit : contract_def =
   let deposit = {
@@ -715,9 +715,9 @@ let () =
   (* let e1 = (AritOp(Plus(Num(1),Times(Num(2),Num(3))))) in
   Format.eprintf "%s\n" (arit_op_to_string e1); *)
   let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64 in
-  let blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t = Hashtbl.create 64 in
-  let sigma: ((((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) * values list) = (blockchain, []) in
-  let conf: conf = (blockchain, sigma, Val(VUInt(0))) in
+  let blockchain: blockchain = Hashtbl.create 64 in
+  let sigma: values Stack.t = Stack.create() in
+  let conf: conf = (blockchain, blockchain, sigma, Val(VUInt(0))) in
   let vars: (string, expr) Hashtbl.t = Hashtbl.create 64 in
   let p = Program(ct, blockchain, Val(VUInt(0))) in
 
@@ -726,7 +726,7 @@ let () =
   let lst = free_addr_names e2 in
   print_set lst;
   let e1 = (AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(40)),(Val(VUInt(2)))))))) in
-  let (_, _, Val(VUInt(i))) = eval_expr vars (blockchain, sigma, e1) in
+  let (_, _, _, Val(VUInt(i))) = eval_expr vars (blockchain, blockchain, sigma, e1) in
   (* Format.eprintf "%d\n" i; *)
   Hashtbl.add ct "Bank" (bank_contract());
   Hashtbl.add ct "BloodBank" (blood_bank_contract());
