@@ -556,26 +556,26 @@ let bank_contract unit : contract_def =
     args = [];
     body = Return(
       (StateAssign(
-        This (""),
+        This None,
         "balances",
         MapWrite(
-          StateRead(This(""),"balances"), MsgSender, AritOp((Plus(MapRead(StateRead(This(""),"balances"),MsgSender), MsgValue)))))))
+          StateRead(This None,"balances"), MsgSender, AritOp((Plus(MapRead(StateRead(This None,"balances"),MsgSender), MsgValue)))))))
   } in
   let getBalance = {
     name = "getBalance";
     rettype = UInt;
     args = [];
-    body = MapRead(StateRead(This(""),"balances"),MsgSender)
+    body = MapRead(StateRead(This None,"balances"),MsgSender)
   } in
   let transfer = {
     name = "transfer";
     rettype = Unit;
     args = [(Address, "to"); (UInt, "amount")];
-    body = If(BoolOp(GreaterOrEquals(MapRead(StateRead(This(""),"balances"),MsgSender),Var("amount"))),
-          Seq(StateAssign(This(""), "balances", MapWrite(
-            StateRead(This(""),"balances"), MsgSender, AritOp(Minus(MapRead(StateRead(This(""),"balances"),MsgSender), Var("amount"))))),
-              StateAssign(This(""), "balances", MapWrite(
-            StateRead(This(""),"balances"), Var("to"), AritOp(Minus(MapRead(StateRead(This(""),"balances"),Var("to")), Var("amount")))))
+    body = If(BoolOp(GreaterOrEquals(MapRead(StateRead(This None,"balances"),MsgSender),Var("amount"))),
+          Seq(StateAssign(This None, "balances", MapWrite(
+            StateRead(This None,"balances"), MsgSender, AritOp(Minus(MapRead(StateRead(This None,"balances"),MsgSender), Var("amount"))))),
+              StateAssign(This None, "balances", MapWrite(
+            StateRead(This None,"balances"), Var("to"), AritOp(Minus(MapRead(StateRead(This None,"balances"),Var("to")), Var("amount")))))
             ),
           Val(VUnit))
   } in
@@ -583,10 +583,10 @@ let bank_contract unit : contract_def =
     name = "withdraw";
     rettype = Unit;
     args = [(UInt, "amount")];
-    body = If(BoolOp(GreaterOrEquals(MapRead(StateRead(This(""),"balances"),MsgSender),Var("amount"))),
+    body = If(BoolOp(GreaterOrEquals(MapRead(StateRead(This None,"balances"),MsgSender),Var("amount"))),
             Seq(
-              StateAssign(This(""), "balances", MapWrite(
-              StateRead(This(""),"balances"), MsgSender, AritOp(Minus(MapRead(StateRead(This(""),"balances"),MsgSender), Var("amount"))))),
+              StateAssign(This None, "balances", MapWrite(
+              StateRead(This None,"balances"), MsgSender, AritOp(Minus(MapRead(StateRead(This None,"balances"),MsgSender), Var("amount"))))),
               Transfer(MsgSender, Var("x"))
               ),
             Val(VUnit)
@@ -595,7 +595,7 @@ let bank_contract unit : contract_def =
   {
     name = "Bank";
     state = [(Map(Address, UInt),"balances")];
-    constructor = ([(Map(Address, UInt),"balances")], Return (StateAssign(This(""), "balances", Var("balances"))));
+    constructor = ([(Map(Address, UInt),"balances")], Return (StateAssign(This None, "balances", Var("balances"))));
     functions = [deposit; getBalance; transfer; withdraw];
   }
 
@@ -606,12 +606,12 @@ let setHealth = {
   rettype = Unit;
   args = [(Address, "donor"); (Bool, "isHealty")];
   body = Return (
-    If(BoolOp(Equals(MsgSender, StateRead(This(""), "doctor"))),
+    If(BoolOp(Equals(MsgSender, StateRead(This None, "doctor"))),
       (StateAssign(
-      This(""),
+      This None,
       "healty",
       MapWrite(
-        StateRead(This(""),"healty"), Var("donor"), Var("isHealty")))),
+        StateRead(This None,"healty"), Var("donor"), Var("isHealty")))),
       Revert
     )
   );
@@ -621,8 +621,8 @@ let isHealty = {
   rettype = Bool;
   args = [(Address, "donor")];
   body = Return(
-    If(BoolOp(Equals(MsgSender, StateRead(This(""), "doctor"))),
-      MapRead(StateRead(This(""), "healty"), Var("donor")),
+    If(BoolOp(Equals(MsgSender, StateRead(This None, "doctor"))),
+      MapRead(StateRead(This None, "healty"), Var("donor")),
       Revert
     )
   );
@@ -634,10 +634,10 @@ let donate = {
   args = [(UInt, "amount")];
   body = Return(
     Let(UInt, "donorBlood",Call(Val(VContract(1)),"getBlood",Val(VUInt(0)),[]),
-    If(BoolOp(Conj(MapRead(StateRead(This(""), "healty"), MsgSender), BoolOp(Conj(
+    If(BoolOp(Conj(MapRead(StateRead(This None, "healty"), MsgSender), BoolOp(Conj(
       BoolOp(Greater(Var("donorBlood"),Val(VUInt(3000)))), BoolOp(Greater(
         AritOp(Minus(Var("donorBlood"), Var("amount"))), Val(VUInt(0)))))))),
-      StateAssign(This(""), "blood", AritOp(Plus(StateRead(This(""), "blood"), Var("amount")))),
+      StateAssign(This None, "blood", AritOp(Plus(StateRead(This None, "blood"), Var("amount")))),
       Val(VUnit)
   )));
 } in
@@ -645,21 +645,21 @@ let getDoctor = {
   name = "getDoctor";
   rettype = Address;
   args = [];
-  body = Return(StateRead(This(""), "doctor"));
+  body = Return(StateRead(This None, "doctor"));
 } in
 let getBlood = {
   name = "getBlood";
   rettype = UInt;
   args = [];
-  body = Return(StateRead(This(""), "blood"));
+  body = Return(StateRead(This None, "blood"));
 } in
 {
   name = "BloodBank";
   state = [(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")];
   constructor = ([(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")], Return
-        (Seq((StateAssign(This(""), "healty", Var("healty")),
-          Seq((StateAssign(This(""), "doctor", Var("doctor"))),
-               StateAssign(This(""), "blood", Var("blood"))))
+        (Seq((StateAssign(This None, "healty", Var("healty")),
+          Seq((StateAssign(This None, "doctor", Var("doctor"))),
+               StateAssign(This None, "blood", Var("blood"))))
   )));
   functions = [setHealth; isHealty; donate; getDoctor; getBlood];
 }
@@ -676,20 +676,20 @@ let getBank = {
   name = "getBank";
   rettype = C("BloodBank");
   args = [];
-  body = Return(StateRead(This(""), "bank"));
+  body = Return(StateRead(This None, "bank"));
 } in
 let getBlood = {
   name = "getBlood";
   rettype = UInt;
   args = [];
-  body = Return(StateRead(This(""), "blood"));
+  body = Return(StateRead(This None, "blood"));
 } in
 {
   name = "Donor";
   state = [(UInt, "blood"); (Address, "bank")];
   constructor = ([(UInt, "blood"); (Address,"bank")], Return (Seq(
-    StateAssign(This(""), "blood", Var("blood")),
-    StateAssign(This(""), "bank", Var("bank"))
+    StateAssign(This None, "blood", Var("blood")),
+    StateAssign(This None, "bank", Var("bank"))
   )));
   functions = [donate; getBank; getBlood];
 }
@@ -727,7 +727,7 @@ let () =
   let p = Program(ct, blockchain, Val(VUInt(0))) in
 
   let print_set s = FV.iter print_endline s in
-  let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This(""), "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
+  let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This None, "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
   let lst = free_addr_names e2 in
   print_set lst;
   let e1 = (AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(40)),(Val(VUInt(2)))))))) in
