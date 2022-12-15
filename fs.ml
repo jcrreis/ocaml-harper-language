@@ -527,9 +527,7 @@ let update_balance
   (address: values)
   (value: values)
   (vars: (string, expr) Hashtbl.t)
-  (conf: (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t *
-  (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * values list)
-  * expr)) : unit =
+  (conf: conf) : unit =
     let (blockchain, sigma , _) = conf in
     let get_contract_by_address (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t ) (address: values) =
     Hashtbl.fold (fun (k1, k2) (_, _, _) acc -> if k2 = address then k1 else acc) blockchain VUnit
@@ -719,10 +717,7 @@ let () =
   let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64 in
   let blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t = Hashtbl.create 64 in
   let sigma: ((((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t) * values list) = (blockchain, []) in
-  let conf:
-    (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t *
-    (((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * values list)
-    * expr) = (blockchain, sigma, Val(VUInt(0))) in
+  let conf: conf = (blockchain, sigma, Val(VUInt(0))) in
   let vars: (string, expr) Hashtbl.t = Hashtbl.create 64 in
   let p = Program(ct, blockchain, Val(VUInt(0))) in
 
