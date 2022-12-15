@@ -514,12 +514,14 @@ let function_body
     with Not_found -> ([], Return (Revert))
 
 
-let function_type (contract_name: string) (function_name: string) (ct: (string, contract_def) Hashtbl.t) : t_exp =
+let function_type (contract_name: string) (function_name: string) (ct: (string, contract_def) Hashtbl.t) : (t_exp list * t_exp) =
   let contract : contract_def = Hashtbl.find ct contract_name in
   let functions_def : fun_def list = contract.functions in
   try
-    let f = List.find (fun (x : fun_def) -> x.name = function_name) (functions_def) in f.rettype
-  with Not_found -> TRevert (* maybe remove? *)
+    let f = List.find (fun (x : fun_def) -> x.name = function_name) (functions_def) in 
+    let t_es = List.map (fun (t_e, _) -> t_e) f.args in
+    (t_es, f.rettype)
+  with Not_found -> ([], TRevert) (* maybe remove? *)
 
   (*uptbal(β, a, n)*)
 let update_balance
@@ -742,9 +744,10 @@ let () =
   let (res1, _) = function_body "Bank" "transfer" [Val(VUInt(1));Val(VUInt(1))] ct in
   print_tuples res1;
   let res = function_type "Bank" "transfer" ct in
-  print_tuples [(res, "transfer fun return_type")];
+  (* print_tuples [(res, "transfer fun return_type")]; *)
   let res = function_type "BloodBank" "isHealty" ct in
-  print_tuples [(res, "isHealty fun return_type")]
+  ()
+  (* print_tuples [(res, "isHealty fun return_type")] *)
 
 
 
