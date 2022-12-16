@@ -221,23 +221,38 @@ let rec eval_expr
       end
       | Div (e1, e2) -> begin match e1, e2 with
         | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, blockchain', sigma, eval_arit_expr a1)
-        | _ -> assert false
+        | Val (VUInt i), e2 -> let (_, _, _, e2') = eval_expr ct vars (blockchain, blockchain', sigma, e2) in
+         eval_expr ct vars (blockchain, blockchain', sigma, AritOp(Div (Val (VUInt i), e2')))
+        | e1, e2 -> let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in
+          eval_expr ct vars (blockchain, blockchain', sigma, AritOp(Div (e1', e2)))
       end
       | Times (e1, e2) -> begin match e1, e2 with
         | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, blockchain', sigma, eval_arit_expr a1)
-        | _ -> assert false
+        | Val (VUInt i), e2 -> let (_, _, _, e2') = eval_expr ct vars (blockchain, blockchain', sigma, e2) in
+          eval_expr ct vars (blockchain, blockchain', sigma, AritOp(Times (Val (VUInt i), e2')))
+        | e1, e2 -> let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in
+          eval_expr ct vars (blockchain, blockchain', sigma, AritOp(Times (e1', e2)))
       end
       | Minus (e1, e2) -> begin match e1, e2 with
         | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, blockchain', sigma, eval_arit_expr a1)
-        | _ -> assert false
+        | Val (VUInt i), e2 -> let (_, _, _, e2') = eval_expr ct vars (blockchain, blockchain', sigma, e2) in
+          eval_expr ct vars (blockchain, blockchain', sigma, AritOp(Minus (Val (VUInt i), e2')))
+        | e1, e2 -> let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in
+          eval_expr ct vars (blockchain, blockchain', sigma, AritOp(Minus (e1', e2)))
       end
       | Exp (e1, e2) -> begin match e1, e2 with
         | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, blockchain', sigma, eval_arit_expr a1)
-        | _ -> assert false
+        | Val (VUInt i), e2 -> let (_, _, _, e2') = eval_expr ct vars (blockchain, blockchain', sigma, e2) in
+          eval_expr ct vars (blockchain, blockchain', sigma, AritOp(Exp (Val (VUInt i), e2')))
+        | e1, e2 -> let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in
+          eval_expr ct vars (blockchain, blockchain', sigma, AritOp(Exp (e1', e2)))
       end
       | Mod (e1, e2) -> begin match e1, e2 with
         | Val (VUInt(_)), Val (VUInt(_)) ->  (blockchain, blockchain', sigma, eval_arit_expr a1)
-        | _ -> assert false
+        | Val (VUInt i), e2 -> let (_, _, _, e2') = eval_expr ct vars (blockchain, blockchain', sigma, e2) in
+          eval_expr ct vars (blockchain, blockchain', sigma, AritOp(Mod (Val (VUInt i), e2')))
+        | e1, e2 -> let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in
+          eval_expr ct vars (blockchain, blockchain', sigma, AritOp(Mod (e1', e2)))
       end
     end
     | BoolOp b1 -> begin match b1 with
@@ -538,8 +553,10 @@ let update_balance
     in
     let contract = get_contract_by_address blockchain address in
     let (c, sv, old_balance) = Hashtbl.find blockchain (contract, address) in
-    let (_, _, _, Val(new_balance)) = eval_expr ct vars (blockchain, blockchain', sigma, (AritOp (Plus (Val(old_balance), Val(value))))) in
-    Hashtbl.replace blockchain (contract, address) (c, sv, new_balance)
+    match eval_expr ct vars (blockchain, blockchain', sigma, (AritOp (Plus (Val(old_balance), Val(value))))) with 
+      | (_, _, _, Val new_balance) -> Hashtbl.replace blockchain (contract, address) (c, sv, new_balance)
+      | _ -> assert false
+    
 
 (*Top(σ)*)
 (*if sigma = sigma' * a' then a' else if sigma = blockchain then Val(VUnit) *)
