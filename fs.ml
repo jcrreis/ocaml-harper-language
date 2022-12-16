@@ -86,9 +86,13 @@ type contract_def = {
   functions : fun_def list;
 }
 
+type contract_table = (string, contract_def) Hashtbl.t
 
-type program =
-  | Program of ((string, contract_def) Hashtbl.t * ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t * expr)
+type blockchain = ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t
+
+type conf = (blockchain * blockchain * values Stack.t * expr)
+
+type program = (contract_table * blockchain * expr)
 
 let rec eval_arit_expr (e: arit_ops) : expr = match e with
   | Plus (e1, e2) -> begin match e1, e2 with
@@ -162,41 +166,6 @@ let rec eval_bool_expr (e: bool_ops) : expr = match e with
     end
 
 
-(*
-
-let from_arit_ops_to_expr (e: arit_ops) : expr = match e with
-  | Num (i) -> Val(VUInt(i))
-  | _ -> assert false
-
-let from_bool_ops_to_expr (e: bool_ops) : expr = match e with
-  | Bool (bval) -> Val(VBool(bval))
-  | _ -> assert false
-
-let from_expr_to_arit_ops (e: expr) : arit_ops = match e with
-  | Val (VUInt(i)) -> Num (i)
-  | _ -> assert false
-
-let from_expr_to_bool_ops (e: expr) : bool_ops = match e with
-  | Val (VBool(bval)) -> Bool (bval)
-  | _ -> assert false
-
-let rec expr_to_string (e: expr) : string = match e with
-  | _ -> assert false
-
-let rec arit_op_to_string (e: arit_ops) : string = match e with
-  | Num n -> Stdlib.string_of_int n
-  | Plus (e1, e2) -> "(" ^ arit_op_to_string e1 ^ " + " ^ arit_op_to_string e2 ^ ")"
-  | Times (e1, e2) -> "(" ^ arit_op_to_string e1 ^ " * " ^ arit_op_to_string e2 ^ ")"
-  | _ -> assert false
-
-let rec bool_op_to_string (e: bool_ops) : string = match e with
-  | Bool(True) -> "true"
-  | Bool(False) -> "false"
-  | _ -> assert false *)
-
-type blockchain = ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t
-
-type conf = (blockchain * blockchain * values Stack.t * expr)
 
 let rec eval_expr
   (ct: (string, contract_def) Hashtbl.t)
@@ -768,7 +737,7 @@ let () =
   (* let x: int = 10 ; x + x ;*)
   (* let e1 = (AritOp(Plus(Num(1),Times(Num(2),Num(3))))) in
   Format.eprintf "%s\n" (arit_op_to_string e1); *)
-  let ct: (string, contract_def) Hashtbl.t = Hashtbl.create 64 in
+  let ct: contract_table = Hashtbl.create 64 in
   let blockchain: blockchain = Hashtbl.create 64 in
   let sigma: values Stack.t = Stack.create() in
   let conf: conf = (blockchain, blockchain, sigma, Val(VUInt(0))) in
