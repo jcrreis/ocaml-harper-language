@@ -324,22 +324,22 @@ let rec eval_expr
     | MsgSender -> (blockchain, blockchain', sigma, Hashtbl.find vars "msg.sender")
     | MsgValue -> (blockchain, blockchain', sigma, Hashtbl.find vars "msg.value")
     | Balance e1 -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
-      | (_, _, _, Val(VAddress(a))) ->
-        let c =  get_contract_by_address blockchain (VAddress(a)) in
-        let (_, _, v) = Hashtbl.find blockchain (c, VAddress(a)) in
+      | (_, _, _, Val(VAddress a)) ->
+        let c =  get_contract_by_address blockchain (VAddress a) in
+        let (_, _, v) = Hashtbl.find blockchain (c, VAddress a) in
         (blockchain, blockchain', sigma, Val(v))
       | _ -> assert false
       end
     | Address e1 ->  begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
-      | (_, _, _, Val(VContract(c))) ->
-        let a =  get_address_by_contract blockchain (VContract(c)) in
-        (blockchain, blockchain', sigma, Val(a))
+      | (_, _, _, Val(VContract c)) ->
+        let a =  get_address_by_contract blockchain (VContract c) in
+        (blockchain, blockchain', sigma, Val a)
       | _ -> assert false
       end
     | StateRead (e1, s) ->  begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
-      | (_, _, _, Val(VContract(c))) ->
-        let a = get_address_by_contract blockchain (VContract(c)) in
-        let (_, sv, _) = Hashtbl.find blockchain (VContract(c),a) in
+      | (_, _, _, Val(VContract c)) ->
+        let a = get_address_by_contract blockchain (VContract c) in
+        let (_, sv, _) = Hashtbl.find blockchain (VContract c,a) in
         (blockchain, blockchain', sigma, StateVars.find s sv)
       | _ -> assert false
       end
@@ -352,7 +352,7 @@ let rec eval_expr
       let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in
       Hashtbl.add vars x e1' ; eval_expr ct vars (blockchain, blockchain', sigma, e2)
     | Assign (x, e1) -> let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in
-      Hashtbl.add vars x e1' ; (blockchain, blockchain', sigma, Val(VUnit))
+      Hashtbl.add vars x e1' ; (blockchain, blockchain', sigma, Val VUnit)
     | If (e1, e2, e3) -> let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in
       begin match e1' with
       | Val (VBool b) -> begin match b with
@@ -367,8 +367,8 @@ let rec eval_expr
       (blockchain', blockchain', sigma, Revert)
     | StateAssign (e1, s , e2) ->
       begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
-        | (_, _, _, Val(VContract(c))) ->
-          let a = get_address_by_contract blockchain (VContract(c)) in
+        | (_, _, _, Val(VContract c)) ->
+          let a = get_address_by_contract blockchain (VContract c) in
           let (_, _, _, e2') = eval_expr ct vars (blockchain, blockchain', sigma, e2) in
           let (c_name, map, n) = Hashtbl.find blockchain (VContract c, a) in
           let map' = StateVars.add s e2' map in
@@ -383,10 +383,10 @@ let rec eval_expr
       | _ -> assert false
       end
     | MapWrite (e1, e2, e3) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
-      | (_, _, _, Val(VMapping(m))) ->
+      | (_, _, _, Val(VMapping m)) ->
         let (_, _, _, e2') = eval_expr ct vars (blockchain, blockchain', sigma, e2) in
         let (_, _, _, e3') = eval_expr ct vars (blockchain, blockchain', sigma, e3) in
-        Hashtbl.add m e2' e3' ; (blockchain, blockchain', sigma, Val(VUnit))
+        Hashtbl.add m e2' e3' ; (blockchain, blockchain', sigma, Val(VMapping m))
       | _ -> assert false
       end
     | Return e1 -> let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in (blockchain, blockchain', sigma, e1')
@@ -559,8 +559,8 @@ let function_body
     let functions_def : fun_def list = contract.functions in
     try
       let f = List.find (fun (x : fun_def) -> x.name = function_name) (functions_def) in
-      if List.length values = List.length f.args then (f.args, f.body) else ([], Return (Revert))
-    with Not_found -> ([], Return (Revert))
+      if List.length values = List.length f.args then (f.args, f.body) else ([], Return Revert)
+    with Not_found -> ([], Return Revert)
 
 
 let function_type (contract_name: string) (function_name: string) (ct: (string, contract_def) Hashtbl.t) : (t_exp list * t_exp) =
@@ -586,7 +586,7 @@ let update_balance
     in
     let contract = get_contract_by_address blockchain address in
     let (c, sv, old_balance) = Hashtbl.find blockchain (contract, address) in
-    match eval_expr ct vars (blockchain, blockchain', sigma, (AritOp (Plus (Val(old_balance), Val(value))))) with 
+    match eval_expr ct vars (blockchain, blockchain', sigma, (AritOp (Plus (Val old_balance, Val value)))) with 
       | (_, _, _, Val new_balance) -> Hashtbl.replace blockchain (contract, address) (c, sv, new_balance)
       | _ -> assert false
     
@@ -779,7 +779,7 @@ let () =
   let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This None, "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
   let lst = free_addr_names e2 in
   print_set lst;
-  let e1 = BoolOp(Inequals((AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(10)),(Val(VUInt(2)))))))),Val(VUInt(20)))) in
+  let e1 = BoolOp(Equals((AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(10)),(Val(VUInt(1)))))))),Val(VUInt(13)))) in
   let (_, _, _, Val(VBool(b))) = eval_expr ct vars (blockchain, blockchain, sigma, e1) in
   match b with 
     | True -> Format.eprintf "True";
