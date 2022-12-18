@@ -387,6 +387,7 @@ let rec eval_expr
         (blockchain, blockchain', sigma, StateVars.find s sv)
       | _ -> assert false
       end
+      (*VER*)
     | Transfer (e1, e2) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
       | (_, _, _, Val(VAddress a)) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e2) with
         | (_, _, _, Val(VUInt v)) -> 
@@ -406,6 +407,7 @@ let rec eval_expr
         end
       | _ -> assert false
       end
+      (*VER*)
     | New (s, e1, le) -> (* new C.value(e)(le)*)
       begin
         let c = Hashtbl.length blockchain in
@@ -427,6 +429,7 @@ let rec eval_expr
         else 
           eval_expr ct vars (blockchain, blockchain', sigma, New (s, e1, le))
       end
+      (*VER*)
     | Cons (s, e1) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with (*Contract_Name(address) C(e)*)  (*CAST*)
       | (_, _, _, Val(VAddress a)) -> 
         let c = get_contract_by_address blockchain (VAddress a) in
@@ -437,7 +440,7 @@ let rec eval_expr
           (blockchain, blockchain', sigma, Revert)
       | _ -> assert false
       end
-    | Seq (e1, e2) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
+    | Seq (e1, e2) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with (*VER*)
       | (_, _, _, Revert) -> eval_expr ct vars (blockchain, blockchain', sigma, Revert)
       | _ -> begin match top conf with 
         | VUnit -> eval_expr ct vars (blockchain, blockchain', sigma, e2) (* empty stack *)
@@ -458,7 +461,34 @@ let rec eval_expr
         end
       | _ -> assert false
       end
-    | Call (e1, s, e2, le) -> assert false
+    | Call (e1, s, e2, le) -> 
+      begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
+      | (_, _, _, Val(VContract c)) -> 
+        let a = get_address_by_contract blockchain (VContract c) in
+        begin match eval_expr ct vars (blockchain, blockchain', sigma, e2) with
+        | (_, _, _, Val(VUInt n)) -> 
+          let (success, blockchain) = update_balance ct (top conf) (VUInt (-n)) vars conf in
+          if success 
+            then 
+              begin 
+                Hashtbl.add vars "msg.sender" (Val(top conf));
+                Hashtbl.add vars "msg.value" (Val(VUInt n));
+                Hashtbl.add vars "this" (Val(VContract c));
+                Stack.push a sigma; 
+                let (contract_name, _, _) = Hashtbl.find blockchain (VContract c, a) in
+                let (args, body) = function_body contract_name s le ct in
+                if body = Return Revert then 
+                  (blockchain, blockchain', sigma, Revert) 
+                else
+                (* Hashtbl.add vars List.combine args le *) (* add args to hashtbl vars with args as key and le as values (both lists)*)
+                (blockchain, blockchain', sigma, Val VUnit)  (* Falta acrescentar o saldo em algum sitio???*)
+              end
+            else 
+              (blockchain, blockchain', sigma, Revert)
+        | _ -> assert false
+        end
+      | _ -> assert false
+      end
     | CallTopLevel (e1, s, e2, e3, le) -> assert false
     | Revert -> (blockchain', blockchain', sigma, Revert)
     | StateAssign (e1, s , e2) ->
