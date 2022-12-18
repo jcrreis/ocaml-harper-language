@@ -6,6 +6,8 @@ module FV = Set.Make(String)
 module FN = Set.Make(String)
 module StateVars = Map.Make(String)
 
+open Cryptokit
+
 type t_exp =
   | C of string (* * hash_contract_code? *)
   | Bool
@@ -415,7 +417,7 @@ let rec eval_expr
         if (List.length t_es = List.length le) && (top conf) != VUnit then
         begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
           | (_, _, _, Val (VUInt n)) -> 
-            update_balance ct (top conf) (VUInt (-n)) vars conf;
+            update_balance ct (top conf) (VUInt (-n)) vars conf; (* need to add contract to blockchain  *)
             (blockchain, blockchain', sigma, Val(VContract c))
           | _ -> assert false
         end
@@ -425,7 +427,12 @@ let rec eval_expr
       else 
         eval_expr ct vars (blockchain, blockchain', sigma, New (s, e1, le))
     end
-    | Cons (s, e1) -> assert false
+    | Cons (s, e1) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with (*Contract_Name(address) C(e)*) 
+      | (_, _, _, Val(VAddress a)) -> 
+        let c = get_contract_by_address blockchain (VAddress a) in
+        (blockchain, blockchain', sigma, Val c)
+      | _ -> assert false
+      end
     | Seq (e1, e2) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
       | (_, _, _, Revert) -> eval_expr ct vars (blockchain, blockchain', sigma, Revert)
       | _ -> begin match top conf with 
@@ -833,8 +840,8 @@ let () =
   let res = function_type "Bank" "transfer" ct in
   (* print_tuples [(res, "transfer fun return_type")]; *)
   let res = function_type "BloodBank" "isHealty" ct in
-  ()
-  (*Cryptokit.keccak 160*)
+  let hash = transform_string (Hexa.encode()) "OLÁ MUNDO1" in 
+  Format.eprintf "\n0x%s\n" hash
   (* print_tuples [(res, "isHealty fun return_type")] *)
 
 
