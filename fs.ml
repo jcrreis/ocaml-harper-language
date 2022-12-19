@@ -791,7 +791,6 @@ let getBlood = {
   functions = [setHealth; isHealty; donate; getDoctor; getBlood];
 }
 
-
 let donor_contract unit : contract_def =
 let donate = {
   name = "donate";
@@ -839,10 +838,13 @@ let rec print_tuples lst =
   end
 
 let generate_new_ethereum_address () : string =
-  let rsa_public_key = RSA.new_key 512 in
-  let keccak_key = hash_string (Hash.keccak 256) rsa_public_key.e in
+  let rsa_key = RSA.new_key 512 in
+  let rsa_public_key = rsa_key.e in 
+  let keccak_key = hash_string (Hash.keccak 256) rsa_public_key in
   let address = transform_string (Hexa.encode()) keccak_key in 
-  "0x" ^ (String.sub address 24 40)
+  "0x" ^ (String.sub address 24 40) 
+  (* verify this, still returning a 336 bit string??? should be 160? 
+    20 bytes / 40 (hex) characters / 160 bits *)
 
 let () =
   (* let x: int = 10 ; x + x ;*)
