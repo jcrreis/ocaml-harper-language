@@ -169,6 +169,16 @@ let rec eval_bool_expr (e: bool_ops) : expr = match e with
     end
 
 
+let generate_new_ethereum_address () : string =
+  let rsa_key = RSA.new_key 512 in
+  let rsa_public_key = rsa_key.e in 
+  let keccak_key = hash_string (Hash.keccak 256) rsa_public_key in
+  let address = transform_string (Hexa.encode()) keccak_key in 
+  "0x" ^ (String.sub address 24 40) 
+  (* verify this, still returning a 336 bit string??? should be 160? 
+    20 bytes / 40 (hex) characters / 160 bits *)
+
+
 (*sv*)
 let state_vars_contract (contract_name: string) (ct: (string, contract_def) Hashtbl.t) : (t_exp * string) list =
   let contract : contract_def = Hashtbl.find ct contract_name in contract.state
@@ -227,6 +237,7 @@ let rec eval_expr
     let address' = get_address_by_contract blockchain contract in
     if contract' = VUnit && address' = VUnit then true else false
   in
+  (*uptbal(β, a, n)*)
   let update_balance
     (ct: (string, contract_def) Hashtbl.t)
     (address: values)
@@ -411,7 +422,7 @@ let rec eval_expr
     | New (s, e1, le) -> (* new C.value(e)(le)*)
       begin
         let c = Hashtbl.length blockchain in
-        let a = "0x00" ^ string_of_int c in (* Use cryptokit *)
+        let a = generate_new_ethereum_address() in (* Use cryptokit *)
         (* https://ethereum.stackexchange.com/questions/3542/how-are-ethereum-addresses-generated *)
         if uniqueness_contract_and_address_property blockchain (VContract c) (VAddress a) then 
         begin
@@ -518,10 +529,6 @@ let rec eval_expr
       | _ -> assert false
       end
     | Return e1 -> let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in (blockchain, blockchain', sigma, e1')
-
-
-(*uptbal(β, a, n)*)
-
 
 
 let rec free_variables (e: expr) : FV.t =
@@ -827,7 +834,9 @@ let rec t_exp_to_string (t_e: t_exp) : string = match t_e with
   | UInt -> "uint"
   | Address -> "address"
   | Map (t_e1, t_e2)-> "mapping(" ^ t_exp_to_string t_e1 ^ " => " ^ t_exp_to_string t_e2 ^ ")"
+  | TRevert -> "revert"
 
+  
 let rec print_tuples lst =
   begin match lst with
     | [] -> ()
@@ -837,14 +846,6 @@ let rec print_tuples lst =
       print_tuples rest
   end
 
-let generate_new_ethereum_address () : string =
-  let rsa_key = RSA.new_key 512 in
-  let rsa_public_key = rsa_key.e in 
-  let keccak_key = hash_string (Hash.keccak 256) rsa_public_key in
-  let address = transform_string (Hexa.encode()) keccak_key in 
-  "0x" ^ (String.sub address 24 40) 
-  (* verify this, still returning a 336 bit string??? should be 160? 
-    20 bytes / 40 (hex) characters / 160 bits *)
 
 let () =
   (* let x: int = 10 ; x + x ;*)
@@ -855,17 +856,18 @@ let () =
   let sigma: values Stack.t = Stack.create() in
   let conf: conf = (blockchain, blockchain, sigma, Val(VUInt(0))) in
   let vars: (string, expr) Hashtbl.t = Hashtbl.create 64 in
-  let p : program = (ct, blockchain, Val(VUInt(0))) in
+  (* let p : program = (ct, blockchain, Val(VUInt(0))) in *)
 
   let print_set s = FV.iter print_endline s in
   let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This None, "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
   let lst = free_addr_names e2 in
   print_set lst;
-  let e1 = BoolOp(Equals((AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(10)),(Val(VUInt(1)))))))),Val(VUInt(13)))) in
-  let (_, _, _, Val(VBool(b))) = eval_expr ct vars (blockchain, blockchain, sigma, e1) in
+  (* let e1 = BoolOp(Equals((AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(10)),(Val(VUInt(1)))))))),Val(VUInt(13)))) in *)
+  (* let (_, _, _, Val(VBool(b))) = eval_expr ct vars (blockchain, blockchain, sigma, e1) in
   match b with 
     | True -> Format.eprintf "True";
     | False -> Format.eprintf "False";
+    | _ -> (); *)
   (* Format.eprintf "%d\n" i; *)
   Hashtbl.add ct "Bank" (bank_contract());
   Hashtbl.add ct "BloodBank" (blood_bank_contract());
@@ -880,13 +882,10 @@ let () =
   (* print_tuples res4; *)
   let (res1, _) = function_body "Bank" "transfer" [Val(VUInt(1));Val(VUInt(1))] ct in
   print_tuples res1;
-  let res = function_type "Bank" "transfer" ct in
   (* print_tuples [(res, "transfer fun return_type")]; *)
-  let res = function_type "BloodBank" "isHealty" ct in
-  let hash = transform_string (Hexa.encode()) "OLÁ MUNDO1" in 
   let address = generate_new_ethereum_address() in 
   Format.eprintf "\n%s" address;
-  Format.eprintf "\n%d" ((Bytes.length (Bytes.of_string address))*8);
+  Format.eprintf "\n%d\n" ((Bytes.length (Bytes.of_string address))*8);
   (* print_tuples [(res, "isHealty fun return_type")] *)
 
 
