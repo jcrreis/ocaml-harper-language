@@ -412,6 +412,7 @@ let rec eval_expr
       begin
         let c = Hashtbl.length blockchain in
         let a = "0x00" ^ string_of_int c in (* Use cryptokit *)
+        (* https://ethereum.stackexchange.com/questions/3542/how-are-ethereum-addresses-generated *)
         if uniqueness_contract_and_address_property blockchain (VContract c) (VAddress a) then 
         begin
           let contract_def: contract_def = Hashtbl.find ct s in 
@@ -419,7 +420,8 @@ let rec eval_expr
           if (List.length t_es = List.length le) && (top conf) != VUnit then
           begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
             | (_, _, _, Val (VUInt n)) -> 
-              update_balance ct (top conf) (VUInt (-n)) vars conf; (* need to add contract to blockchain  *)
+              update_balance ct (top conf) (VUInt (-n)) vars conf;
+              Hashtbl.add blockchain (VContract c, VAddress a) (contract_def.name, StateVars.empty (*add state vars*), VUInt(n));
               (blockchain, blockchain', sigma, Val(VContract c))
             | _ -> assert false
           end
@@ -836,6 +838,11 @@ let rec print_tuples lst =
       print_tuples rest
   end
 
+let generate_new_ethereum_address () : string =
+  let rsa_public_key = RSA.new_key 512 in
+  let keccak_key = hash_string (Hash.keccak 256) rsa_public_key.e in
+  let address = transform_string (Hexa.encode()) keccak_key in 
+  "0x" ^ (String.sub address 24 40)
 
 let () =
   (* let x: int = 10 ; x + x ;*)
@@ -875,7 +882,9 @@ let () =
   (* print_tuples [(res, "transfer fun return_type")]; *)
   let res = function_type "BloodBank" "isHealty" ct in
   let hash = transform_string (Hexa.encode()) "OLÁ MUNDO1" in 
-  Format.eprintf "\n0x%s\n" hash
+  let address = generate_new_ethereum_address() in 
+  Format.eprintf "\n%s" address;
+  Format.eprintf "\n%d" ((Bytes.length (Bytes.of_string address))*8);
   (* print_tuples [(res, "isHealty fun return_type")] *)
 
 
