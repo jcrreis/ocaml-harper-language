@@ -170,13 +170,12 @@ let rec eval_bool_expr (e: bool_ops) : expr = match e with
 
 
 let generate_new_ethereum_address () : string =
+  (* https://ethereum.stackexchange.com/questions/3542/how-are-ethereum-addresses-generated *)
   let rsa_key = RSA.new_key 512 in
   let rsa_public_key = rsa_key.e in 
   let keccak_key = hash_string (Hash.keccak 256) rsa_public_key in
   let address = transform_string (Hexa.encode()) keccak_key in 
   "0x" ^ (String.sub address 24 40) 
-  (* verify this, still returning a 336 bit string??? should be 160? 
-    20 bytes / 40 (hex) characters / 160 bits *)
 
 
 (*sv*)
@@ -218,7 +217,7 @@ let top
   try
     Stack.top sigma
   with Stack.Empty -> VUnit
-
+  
 
 let rec eval_expr
   (ct: (string, contract_def) Hashtbl.t)
@@ -236,6 +235,7 @@ let rec eval_expr
     let contract' = get_contract_by_address blockchain address in
     let address' = get_address_by_contract blockchain contract in
     if contract' = VUnit && address' = VUnit then true else false
+    (* NOT NEEDED, because C and A are always unique????*)
   in
   (*uptbal(β, a, n)*)
   let update_balance
@@ -422,8 +422,7 @@ let rec eval_expr
     | New (s, e1, le) -> (* new C.value(e)(le)*)
       begin
         let c = Hashtbl.length blockchain in
-        let a = generate_new_ethereum_address() in (* Use cryptokit *)
-        (* https://ethereum.stackexchange.com/questions/3542/how-are-ethereum-addresses-generated *)
+        let a = generate_new_ethereum_address() in
         if uniqueness_contract_and_address_property blockchain (VContract c) (VAddress a) then 
         begin
           let contract_def: contract_def = Hashtbl.find ct s in 
@@ -456,7 +455,7 @@ let rec eval_expr
     | Seq (e1, e2) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with (*VER*)
       | (_, _, _, Revert) -> eval_expr ct vars (blockchain, blockchain', sigma, Revert)
       | _ -> begin match top conf with 
-        | VUnit -> eval_expr ct vars (blockchain, blockchain', sigma, e2) (* empty stack *)
+        | VUnit -> eval_expr ct vars (blockchain, blockchain, sigma, e2) (* empty call stack *) (*commit blockchain changes*)
         | _ -> eval_expr ct vars (blockchain, blockchain', sigma, e2)
         end
       end
@@ -484,17 +483,24 @@ let rec eval_expr
           if success 
             then 
               begin 
-                Hashtbl.add vars "msg.sender" (Val(top conf));
-                Hashtbl.add vars "msg.value" (Val(VUInt n));
-                Hashtbl.add vars "this" (Val(VContract c));
-                Stack.push a sigma; 
                 let (contract_name, _, _) = Hashtbl.find blockchain (VContract c, a) in
                 let (args, body) = function_body contract_name s le ct in
                 if body = Return Revert then 
                   (blockchain, blockchain', sigma, Revert) 
                 else
-                (* Hashtbl.add vars List.combine args le *) (* add args to hashtbl vars with args as key and le as values (both lists)*)
-                (blockchain, blockchain', sigma, Val VUnit)  (* Falta acrescentar o saldo em algum sitio???*)
+                begin 
+                  let (success, blockchain) = update_balance ct a (VUInt (n)) vars conf in
+                  Hashtbl.add vars "msg.sender" (Val(top conf));
+                  Hashtbl.add vars "msg.value" (Val(VUInt n));
+                  Hashtbl.add vars "this" (Val(VContract c));
+                  Stack.push a sigma; 
+                  try
+                    List.iter2 (fun arg value -> Hashtbl.add vars arg value) (List.map (fun (_, v) -> v) args) le;
+                    let (blockchain, blockchain', sigma, es) = eval_expr ct vars (blockchain, blockchain', sigma, body) in
+                    List.iter (fun arg -> Hashtbl.remove vars arg) (List.map (fun (_, v) -> v) args);
+                    (blockchain, blockchain', sigma, es)
+                  with Invalid_argument "Mismatch in function parameters and values" -> (blockchain, blockchain', sigma, Revert) 
+                end
               end
             else 
               (blockchain, blockchain', sigma, Revert)
