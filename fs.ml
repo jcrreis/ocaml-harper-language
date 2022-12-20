@@ -170,7 +170,7 @@ let rec eval_bool_expr (e: bool_ops) : expr = match e with
 
 
 let generate_new_ethereum_address () : string =
-  (* https://ethereum.stackexchange.com/questions/3542/how-are-ethereum-addresses-generated *)
+  (* https://ethereum.stackexchange.com/questions/3542/how-are-ethereum-addresses-generated*)
   let rsa_key = RSA.new_key 512 in
   let rsa_public_key = rsa_key.e in 
   let keccak_key = hash_string (Hash.keccak 256) rsa_public_key in
@@ -421,25 +421,26 @@ let rec eval_expr
       begin
         let c = Hashtbl.length blockchain in
         let a = generate_new_ethereum_address() in
-        if uniqueness_contract_and_address_property blockchain (VContract c) (VAddress a) then 
-        begin
-          let contract_def: contract_def = Hashtbl.find ct s in 
-          let (t_es, body) = contract_def.constructor in
-          if (List.length t_es = List.length le) && (top conf) != VUnit then
-          begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
-            | (_, _, _, Val (VUInt n)) -> 
-              update_balance ct (top conf) (VUInt (-n)) vars conf;
-              Hashtbl.add blockchain (VContract c, VAddress a) (contract_def.name, StateVars.empty (*add state vars*), VUInt(n));
-              (blockchain, blockchain', sigma, Val(VContract c))
-            | _ -> assert false
-          end
-          else
-            assert false 
+        (* if uniqueness_contract_and_address_property blockchain (VContract c) (VAddress a) then 
+        begin *)
+        let contract_def: contract_def = Hashtbl.find ct s in 
+        let (t_es, body) = contract_def.constructor in
+        if (List.length t_es = List.length le) && (top conf) != VUnit then
+        begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
+          | (_, _, _, Val (VUInt n)) -> 
+            let res = update_balance ct (top conf) (VUInt (-n)) vars conf in 
+            begin match res with 
+              | Ok blockchain -> 
+                let sv = List.fold_left2 (fun sv t e -> StateVars.add t e sv) StateVars.empty (List.map (fun (_, v) -> v) t_es) le in
+                Hashtbl.add blockchain (VContract c, VAddress a) (contract_def.name, sv, VUInt(n));
+                (blockchain, blockchain', sigma, Val(VContract c))
+              | Error () -> (blockchain, blockchain', sigma, Revert)
+            end
+          | _ -> assert false
         end
-        else 
-          eval_expr ct vars (blockchain, blockchain', sigma, New (s, e1, le))
+        else
+          assert false 
       end
-      (*VER*)
     | Cons (s, e1) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with (*Contract_Name(address) C(e)*)  (*CAST*)
       | (_, _, _, Val(VAddress a)) -> 
         let c = get_contract_by_address blockchain (VAddress a) in
