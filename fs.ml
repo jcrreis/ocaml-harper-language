@@ -243,7 +243,7 @@ let rec eval_expr
     (address: values)
     (value: values)
     (vars: (string, expr) Hashtbl.t)
-    (conf: conf) : bool * blockchain =
+    (conf: conf) : (blockchain, unit) result =
     let (blockchain, blockchain', sigma, _) = conf in
     let get_contract_by_address (blockchain: ((values * values), (string * (expr) StateVars.t * values)) Hashtbl.t ) (address: values) =
     Hashtbl.fold (fun (k1, k2) (_, _, _) acc -> if k2 = address then k1 else acc) blockchain VUnit
@@ -253,7 +253,7 @@ let rec eval_expr
     match eval_expr ct vars (blockchain, blockchain', sigma, (AritOp (Plus (Val old_balance, Val value)))) with 
       | (_, _, _, Val new_balance) -> 
         begin match new_balance with 
-          | VUInt i -> if i < 0 then  (false, blockchain) else (Hashtbl.replace blockchain (contract, address) (c, sv, new_balance) ; (true, blockchain))
+          | VUInt i -> if i < 0 then Error () else (Hashtbl.replace blockchain (contract, address) (c, sv, new_balance) ; Ok blockchain)
           | _ -> assert false
       end
       | _ -> assert false
@@ -402,18 +402,16 @@ let rec eval_expr
     | Transfer (e1, e2) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
       | (_, _, _, Val(VAddress a)) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e2) with
         | (_, _, _, Val(VUInt v)) -> 
-          let (success, blockchain) = update_balance ct (VAddress a) (VUInt (-v)) vars conf in
-          if success 
-            then 
-              begin 
-                Hashtbl.add vars "msg.sender" (Val(VAddress a));
-                Hashtbl.add vars "msg.value" (Val(VUInt v));
-                Hashtbl.add vars "this" (Val(get_contract_by_address blockchain (VAddress a)));
-                Stack.push (VAddress a) sigma; 
-                (blockchain, blockchain', sigma, Val VUnit)  (* Falta acrescentar o saldo em algum sitio???*)
-              end
-            else 
-              (blockchain, blockchain', sigma, Revert) 
+          let res = update_balance ct (VAddress a) (VUInt (-v)) vars conf in
+          begin match res with 
+            | Ok blockchain ->
+              Hashtbl.add vars "msg.sender" (Val(VAddress a));
+              Hashtbl.add vars "msg.value" (Val(VUInt v));
+              Hashtbl.add vars "this" (Val(get_contract_by_address blockchain (VAddress a)));
+              Stack.push (VAddress a) sigma; 
+              (blockchain, blockchain', sigma, Val VUnit)
+            | Error () -> (blockchain, blockchain', sigma, Revert)
+          end
         | _ -> assert false 
         end
       | _ -> assert false
@@ -479,31 +477,30 @@ let rec eval_expr
         let a = get_address_by_contract blockchain (VContract c) in
         begin match eval_expr ct vars (blockchain, blockchain', sigma, e2) with
         | (_, _, _, Val(VUInt n)) -> 
-          let (success, blockchain) = update_balance ct (top conf) (VUInt (-n)) vars conf in
-          if success 
-            then 
-              begin 
-                let (contract_name, _, _) = Hashtbl.find blockchain (VContract c, a) in
-                let (args, body) = function_body contract_name s le ct in
-                if body = Return Revert then 
-                  (blockchain, blockchain', sigma, Revert) 
-                else
+          let res = update_balance ct (top conf) (VUInt (-n)) vars conf in
+          begin match res with 
+            | Ok blockchain ->
+              let (contract_name, _, _) = Hashtbl.find blockchain (VContract c, a) in
+              let (args, body) = function_body contract_name s le ct in
+              if body = Return Revert then 
+                (blockchain, blockchain', sigma, Revert) 
+              else
+              begin
+              Hashtbl.add vars "msg.sender" (Val(top conf));
+              Hashtbl.add vars "msg.value" (Val(VUInt n));
+              Hashtbl.add vars "this" (Val(VContract c));
+              Stack.push (top conf) sigma; 
                 begin 
-                  let (success, blockchain) = update_balance ct a (VUInt (n)) vars conf in
-                  Hashtbl.add vars "msg.sender" (Val(top conf));
-                  Hashtbl.add vars "msg.value" (Val(VUInt n));
-                  Hashtbl.add vars "this" (Val(VContract c));
-                  Stack.push a sigma; 
                   try
                     List.iter2 (fun arg value -> Hashtbl.add vars arg value) (List.map (fun (_, v) -> v) args) le;
                     let (blockchain, blockchain', sigma, es) = eval_expr ct vars (blockchain, blockchain', sigma, body) in
                     List.iter (fun arg -> Hashtbl.remove vars arg) (List.map (fun (_, v) -> v) args);
                     (blockchain, blockchain', sigma, es)
-                  with Invalid_argument "Mismatch in function parameters and values" -> (blockchain, blockchain', sigma, Revert) 
+                  with Invalid_argument _ -> (blockchain, blockchain', sigma, Revert)
                 end
               end
-            else 
-              (blockchain, blockchain', sigma, Revert)
+            | Error () -> (blockchain, blockchain', sigma, Revert)
+          end
         | _ -> assert false
         end
       | _ -> assert false
