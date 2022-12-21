@@ -9,7 +9,7 @@ module StateVars = Map.Make(String)
 open Cryptokit
 
 type t_exp =
-  | C of string (* * hash_contract_code? *)
+  | C of int (* * hash_contract_code? *)
   | Bool
   | Unit
   | UInt
@@ -431,7 +431,18 @@ let rec eval_expr
             let res = update_balance ct (top conf) (VUInt (-n)) vars conf in 
             begin match res with 
               | Ok blockchain -> 
-                let sv = List.fold_left2 (fun sv t e -> StateVars.add t e sv) StateVars.empty (List.map (fun (_, v) -> v) t_es) le in
+              (* Aqui como fazer? Inicializar os valores logo com os valores que LE ou adoptar uma postura mais como solidity DEFAULT VALUES para tipos especificos *)
+                (* let sv = List.fold_left2 (fun sv t e -> StateVars.add t e sv) StateVars.empty (List.map (fun (_, v) -> v) t_es) le in *)
+                (*TODO*)
+                let sv = List.fold_left (fun sv (t_e, s) -> match t_e with 
+                  | C n -> assert false
+                  | Bool -> StateVars.add s (Val(VBool(False))) sv
+                  | Unit -> assert false
+                  | UInt -> StateVars.add s (Val(VUInt(0))) sv
+                  | Address -> assert false
+                  | Map (t1, t2) -> assert false
+                  | TRevert -> assert false
+                ) StateVars.empty contract_def.state in 
                 Hashtbl.add blockchain (VContract c, VAddress a) (contract_def.name, sv, VUInt(n));
                 (blockchain, blockchain', sigma, Val(VContract c))
               | Error () -> (blockchain, blockchain', sigma, Revert)
@@ -817,7 +828,7 @@ let donate = {
 } in
 let getBank = {
   name = "getBank";
-  rettype = C("BloodBank");
+  rettype = C(1);
   args = [];
   body = Return(StateRead(This None, "bank"));
 } in
@@ -853,7 +864,7 @@ let fb = {
 
 
 let rec t_exp_to_string (t_e: t_exp) : string = match t_e with
-  | C s -> "contract(" ^ s ^ ")"
+  | C n -> "contract(" ^ (Stdlib.string_of_int n) ^ ")"
   | Bool -> "boolean"
   | Unit -> "unit"
   | UInt -> "uint"
