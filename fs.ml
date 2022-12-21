@@ -437,10 +437,10 @@ let rec eval_expr
                 let sv = List.fold_left (fun sv (t_e, s) -> match t_e with 
                   | C n -> assert false
                   | Bool -> StateVars.add s (Val(VBool(False))) sv
-                  | Unit -> assert false
                   | UInt -> StateVars.add s (Val(VUInt(0))) sv
-                  | Address -> assert false
-                  | Map (t1, t2) -> assert false
+                  | Address -> StateVars.add s (Val(VAddress("0x00"))) sv
+                  | Map (t1, t2) -> StateVars.add s (Val(VMapping(Hashtbl.create 64))) sv
+                  | Unit -> assert false
                   | TRevert -> assert false
                 ) StateVars.empty contract_def.state in 
                 Hashtbl.add blockchain (VContract c, VAddress a) (contract_def.name, sv, VUInt(n));
