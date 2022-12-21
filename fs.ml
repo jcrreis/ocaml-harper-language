@@ -444,6 +444,10 @@ let rec eval_expr
                   | TRevert -> assert false
                 ) StateVars.empty contract_def.state in 
                 Hashtbl.add blockchain (VContract c, VAddress a) (contract_def.name, sv, VUInt(n));
+                Hashtbl.add vars "this" (Val(VContract c));
+                List.iter2 (fun (_, s) e -> Hashtbl.add vars s e) t_es le; (* adiciona as variaveis a hashtable*) (* Não está a funcionar, retorna notfound a avaliar*)
+                let (blockchain, blockchain', sigma, _) = eval_expr ct vars (blockchain, blockchain', sigma, body) in 
+                List.iter (fun (_, s) -> Hashtbl.remove vars s) t_es;
                 (blockchain, blockchain', sigma, Val(VContract c))
               | Error () -> (blockchain, blockchain', sigma, Revert)
             end
@@ -522,7 +526,8 @@ let rec eval_expr
       | _ -> assert false
       end
     | CallTopLevel (e1, s, e2, e3, le) -> assert false
-    | Revert -> (blockchain', blockchain', sigma, Revert)
+    | Revert -> Stack.pop sigma;
+      (blockchain, blockchain', sigma, Revert)
     | StateAssign (e1, s , e2) ->
       begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
         | (_, _, _, Val(VContract c)) ->
@@ -814,8 +819,9 @@ let getBlood = {
   constructor = ([(Map(Address, Bool), "healty"); (Address, "doctor"); (UInt, "blood")], Return
         (Seq((StateAssign(This None, "healty", Var("healty")),
           Seq((StateAssign(This None, "doctor", Var("doctor"))),
-               StateAssign(This None, "blood", Var("blood"))))
-  )));
+               StateAssign(This None, "blood", Var("blood")))))));
+              
+  (* constructor = ([], Val(VUnit));           *)
   functions = [setHealth; isHealty; donate; getDoctor; getBlood];
 }
 
@@ -895,7 +901,7 @@ let () =
   (* let p : program = (ct, blockchain, Val(VUInt(0))) in *)
 
   let print_set s = FV.iter print_endline s in
-  let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This None, "blood"); MsgSender;Val (VAddress(generate_new_ethereum_address()));Val (VAddress(generate_new_ethereum_address()))]) in
+  let e2 = New("BloodBank", Val(VUInt(0)),[Val(VMapping(Hashtbl.create 64)); Val(VAddress("0x000x"));Val(VUInt(1111))]) in
   let lst = free_addr_names e2 in
   print_set lst;
   (* let e1 = BoolOp(Equals((AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(10)),(Val(VUInt(1)))))))),Val(VUInt(13)))) in *)
@@ -908,6 +914,8 @@ let () =
   Hashtbl.add ct "Bank" (bank_contract());
   Hashtbl.add ct "BloodBank" (blood_bank_contract());
   Hashtbl.add ct "Donor" (donor_contract());
+  Hashtbl.add ct "EOAContract" (eoa_contract());
+  Hashtbl.add blockchain (VContract 1, VAddress "0x00") ("EOAContract", StateVars.empty, VUInt(1000000000));
   let res = state_vars_contract "Bank" ct in
   let res2 = state_vars_contract "BloodBank" ct in
   let res3 = state_vars_contract "Donor" ct in
@@ -922,6 +930,11 @@ let () =
   let address = generate_new_ethereum_address() in 
   Format.eprintf "\n%s" address;
   Format.eprintf "\n%d\n" ((Bytes.length (Bytes.of_string address))*8);
+  Stack.push (VAddress "0x00") sigma;
+  let res = eval_expr ct vars (blockchain, blockchain, sigma, e2) in 
+  match res with 
+    | (_, _, _, Revert) -> Format.eprintf "\n%s" "REVERTED" ;
+    | _ -> Format.eprintf "\n%s" "SUCESSO";
   (* print_tuples [(res, "isHealty fun return_type")] *)
 
   (* match e2 with
