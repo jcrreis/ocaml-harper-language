@@ -837,6 +837,21 @@ let getBlood = {
   functions = [donate; getBank; getBlood];
 }
 
+let eoa_contract unit : contract_def = 
+let fb = {
+  name = "fb";
+  rettype = Unit;
+  args = [];
+  body = Return(Val(VUnit));
+} in
+{
+  name = "EOAContract";
+  state = [];
+  constructor = ([], Val(VUnit));
+  functions = [fb];
+}
+
+
 let rec t_exp_to_string (t_e: t_exp) : string = match t_e with
   | C s -> "contract(" ^ s ^ ")"
   | Bool -> "boolean"
@@ -869,7 +884,7 @@ let () =
   (* let p : program = (ct, blockchain, Val(VUInt(0))) in *)
 
   let print_set s = FV.iter print_endline s in
-  let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This None, "blood"); MsgSender;Val (VAddress("0x01232"));Val (VAddress("0x012dsadsadsadsa3"))]) in
+  let e2 = New("BloodBank", Val(VUInt(0)),[StateRead(This None, "blood"); MsgSender;Val (VAddress(generate_new_ethereum_address()));Val (VAddress(generate_new_ethereum_address()))]) in
   let lst = free_addr_names e2 in
   print_set lst;
   (* let e1 = BoolOp(Equals((AritOp(Plus(Val (VUInt(1)),AritOp(Plus(Val(VUInt(10)),(Val(VUInt(1)))))))),Val(VUInt(13)))) in *)
