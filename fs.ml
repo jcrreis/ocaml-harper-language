@@ -231,12 +231,12 @@ let rec eval_expr
   let get_address_by_contract (blockchain: blockchain ) (contract: values) : values =
     Hashtbl.fold (fun (k1, k2) (_, _, _) acc -> if k1 = contract then k2 else acc) blockchain VUnit
   in
-  let uniqueness_contract_and_address_property (blockchain: blockchain) (contract: values) (address: values) : bool =
+  (* let uniqueness_contract_and_address_property (blockchain: blockchain) (contract: values) (address: values) : bool =
     let contract' = get_contract_by_address blockchain address in
     let address' = get_address_by_contract blockchain contract in
     if contract' = VUnit && address' = VUnit then true else false
     (* NOT NEEDED, because C and A are always unique????*)
-  in
+  in *)
   (*uptbal(β, a, n)*)
   let update_balance
     (ct: (string, contract_def) Hashtbl.t)
@@ -425,7 +425,7 @@ let rec eval_expr
         begin *)
         let contract_def: contract_def = Hashtbl.find ct s in 
         let (t_es, body) = contract_def.constructor in
-        if (List.length t_es = List.length le) && (top conf) != VUnit then
+        if (List.length t_es = List.length le) && ((top conf) != VUnit) then
         begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with
           | (_, _, _, Val (VUInt n)) -> 
             let res = update_balance ct (top conf) (VUInt (-n)) vars conf in 
@@ -438,8 +438,12 @@ let rec eval_expr
             end
           | _ -> assert false
         end
-        else
-          assert false 
+        else if (List.length t_es = List.length le) && ((top conf) == VUnit) then
+        begin 
+          (blockchain, blockchain', sigma, Revert) (* VER ESTE CASO (NEW-2) *)
+        end 
+        else 
+          (blockchain, blockchain', sigma, Revert) 
       end
     | Cons (s, e1) -> begin match eval_expr ct vars (blockchain, blockchain', sigma, e1) with (*Contract_Name(address) C(e)*)  (*CAST*)
       | (_, _, _, Val(VAddress a)) -> 
@@ -458,7 +462,7 @@ let rec eval_expr
         | _ -> eval_expr ct vars (blockchain, blockchain', sigma, e2)
         end
       end
-    | Let(_, x, e1, e2) ->
+    | Let (_, x, e1, e2) ->
       if Hashtbl.mem vars x then (blockchain, blockchain', sigma, Revert) else (* verify if x está em vars, modificação à tese do pirro*)
       let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in
       Hashtbl.add vars x e1' ; eval_expr ct vars (blockchain, blockchain', sigma, e2)
@@ -532,7 +536,9 @@ let rec eval_expr
         Hashtbl.add m e2' e3' ; (blockchain, blockchain', sigma, Val(VMapping m))
       | _ -> assert false
       end
-    | Return e1 -> let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in (blockchain, blockchain', sigma, e1')
+    | Return e1 -> let (_, _, _, e1') = eval_expr ct vars (blockchain, blockchain', sigma, e1) in 
+      Stack.pop sigma;
+      (blockchain, blockchain', sigma, e1')
 
 
 let rec free_variables (e: expr) : FV.t =
@@ -891,9 +897,6 @@ let () =
   Format.eprintf "\n%s" address;
   Format.eprintf "\n%d\n" ((Bytes.length (Bytes.of_string address))*8);
   (* print_tuples [(res, "isHealty fun return_type")] *)
-
-
-
 
   (* match e2 with
     | Val (VUInt(i)) -> Format.eprintf "%s\n" (Stdlib.string_of_int i);
