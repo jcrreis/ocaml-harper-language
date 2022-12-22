@@ -62,7 +62,7 @@ let rec eval_bool (e: bexp) (tbl: (string, aexp) Hashtbl.t) : bexp = match e wit
 
 let rec eval_statements (e: stm) (s: (string, aexp) Hashtbl.t) = match e with
   | Assign (x, e1) -> let n = eval_arit e1 s in
-      Hashtbl.replace s x n
+    Hashtbl.replace s x n
   | Skip -> ()
   | Seq (s1, s2) -> begin
       eval_statements s1 s;
@@ -86,20 +86,20 @@ let rec eval_arit_func e store = match e with
   | Var (x) -> List.assoc x store
   | Plus (Num n1, Num n2) -> Num (n1 + n2)
   | Plus (Num n1, e2) ->
-      eval_arit_func (Plus(Num n1, eval_arit_func e2 store)) store
+    eval_arit_func (Plus(Num n1, eval_arit_func e2 store)) store
   | Plus (e1, e2) ->
-      eval_arit_func (Plus(eval_arit_func e1 store, e2)) store
+    eval_arit_func (Plus(eval_arit_func e1 store, e2)) store
   | Times (Num n1, Num n2) -> Num (n1 * n2)
   | Times (Num n1, e2) ->
-      eval_arit_func (Times(Num n1, eval_arit_func e2 store)) store
+    eval_arit_func (Times(Num n1, eval_arit_func e2 store)) store
   | Times (e1, e2) ->
-      eval_arit_func (Times(eval_arit_func e1 store, e2)) store
+    eval_arit_func (Times(eval_arit_func e1 store, e2)) store
   | Minus (Num n1, Num n2) ->
-      Num (n1 - n2)
+    Num (n1 - n2)
   | Minus (Num n1, e2) ->
-      eval_arit_func (Minus(Num n1, eval_arit_func e2 store)) store
+    eval_arit_func (Minus(Num n1, eval_arit_func e2 store)) store
   | Minus (e1, e2) ->
-      eval_arit_func (Minus(eval_arit_func e1 store, e2)) store
+    eval_arit_func (Minus(eval_arit_func e1 store, e2)) store
 
 let rec eval_bool_func e store = match e with
   | True -> True
@@ -133,20 +133,20 @@ let rec eval_stmt_func e store = match e with
       eval_stmt_func s2 store'
     end
   | If (e1, s1, s2) -> begin
-    let b = eval_bool_func e1 store in
-    begin match b with
-    | True -> eval_stmt_func s1 store 
-    | False -> eval_stmt_func s2 store
-    | _ -> assert false 
-    end
+      let b = eval_bool_func e1 store in
+      begin match b with
+        | True -> eval_stmt_func s1 store 
+        | False -> eval_stmt_func s2 store
+        | _ -> assert false 
+      end
     end
   | While (e1, s1) -> begin
-    let b = eval_bool_func e1 store in
-    begin match b with
-    | True -> eval_stmt_func s1 store
-    | False -> store
-    | _ -> assert false 
-    end
+      let b = eval_bool_func e1 store in
+      begin match b with
+        | True -> eval_stmt_func s1 store
+        | False -> store
+        | _ -> assert false 
+      end
     end
 
 let head_reduction (e: expr) (tbl: (string, aexp) Hashtbl.t) : expr = match e with
@@ -159,7 +159,7 @@ let head_reduction_func e store = match e with
   | Aexp (e1) -> Aexp (eval_arit_func e1 store)
   | Bexp (e1) -> Bexp (eval_bool_func e1 store)
   | Stm (e1, s) -> Stm (e1, (eval_stmt_func e1 store))
-  
+
 let expr_to_string (e: expr) : string = match e with
   | Aexp (e1) -> begin match e1 with
       | Num (n) -> Stdlib.string_of_int n
